@@ -10,6 +10,7 @@ export async function GET() {
   ]);
   let q:any = db.from('eso_reports').select('*,locations(name),eso_attachments(id,storage_path,file_name,mime_type),maintenance_tasks(assigned_to,status),corrective_actions(action_text,created_at)').order('reported_at',{ascending:false});
   if (me.role === 'employee') q = q.eq('reporter_id',me.id);
+  else if (me.role === 'maintenance' || me.role === 'supervisor') q = q.or(`reporter_id.eq.${me.id},maintenance_tasks.assigned_to.eq.${me.id}`);
   const {data:reports} = await q;
   const users = (emps||[]).map((e:any)=>({id:e.id,employeeId:e.employee_no,name:`${e.first_name} ${e.last_name}`,department:e.departments?.name||'Unassigned',role:roleName(e.role),annualTarget:e.annual_eso_target,active:e.active}));
   const mapped = await Promise.all((reports||[]).map(async (r:any) => {
