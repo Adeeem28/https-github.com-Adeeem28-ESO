@@ -1,29 +1,40 @@
-# ESO Management System — StackBlitz Release
+# ESO Management System — Release v3
 
-Production-connected Next.js + TypeScript release for the ESO Supabase project.
+Next.js + TypeScript + Supabase production release for Environmental & Safety Opportunities.
 
-## Required environment variables
-Copy `.env.example` to `.env.local` in local development, or add the variables as StackBlitz Secrets / Vercel Environment Variables:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SECRET_KEY` (server only; never NEXT_PUBLIC)
-- `APP_SESSION_SECRET` (server only; 32+ random characters)
+## v3 changes
+- Separate **Take Photo** and **Choose from Gallery** actions when submitting ESO.
+- Same camera/gallery options for **Completion / After Photo** when a corrective task is completed.
+- Employee, Maintenance, Supervisor, Admin and Super Admin can all submit ESO reports.
+- New **Supervisor** role.
+- Admin / Super Admin can assign ESO corrective tasks to Maintenance or Supervisor users.
+- Maintenance / Supervisor users get a **My Tasks** list showing work assigned to them and can start and complete their tasks.
+- Completing a task supports corrective-action text plus an optional completion photo.
+- Admin / Super Admin can also complete assigned tasks.
+- ESO detail view shows the original reported photo and the completion/after photo.
+- Admin / Super Admin can edit user name, department, role and annual ESO target, reset privileged-user passwords and safe-delete/deactivate users.
+- Maintenance, Supervisor, Admin and Super Admin can change their own password from the sidebar.
+- PWA manifest and install icons included.
+- Compact mobile layout retained and further tightened.
 
-## Run
-```bash
-npm install
-npm run dev
+## Vercel environment variables
+Set these in Production and Preview:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
+APP_SESSION_SECRET=a-long-random-secret-at-least-32-characters
 ```
 
-## Demo accounts seeded in Supabase
-- Employee: `10001` (no password)
-- Maintenance: `20001` / `maint123`
-- Admin: `90001` / `admin123`
-- Super Admin: `99999` / `super123`
+Do not commit the Supabase secret key to GitHub.
 
-Change/remove demo credentials before company-wide production rollout.
+## Deploy
+1. Upload/replace the repository files with this release.
+2. Commit to `main`.
+3. Vercel should automatically deploy the new commit.
+4. If automatic deployment is disabled, redeploy the latest `main` commit.
 
-## Responsive modes
-- 0–650 px: mobile, no persistent sidebar
-- 651–1300 px: tablet, no persistent sidebar
-- 1301–1650 px: laptop, sidebar
-- 1651+ px: desktop, sidebar
+## Important user behavior
+Employee accounts use Employee ID only. Maintenance, Supervisor, Admin and Super Admin use Employee ID + password.
+
+Deleting a user in the UI is implemented as **safe deletion/deactivation**, preserving historical ESO reports and audit data.

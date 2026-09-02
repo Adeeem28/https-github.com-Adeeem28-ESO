@@ -1,0 +1,7 @@
+-- This release expects the production Supabase project to include:
+-- 1) Supervisor in employees.role
+-- 2) completion_note and completed_by on maintenance_tasks
+-- 3) change_eso_password and admin_set_eso_password RPCs
+-- 4) eso_attachments.attachment_type supporting 'report' and 'completion'
+-- 5) eso_status_history for audit trail
+-- These migrations were already applied to the connected ESO Supabase project during release preparation.
