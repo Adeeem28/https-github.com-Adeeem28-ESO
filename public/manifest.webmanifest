@@ -1,0 +1,9 @@
+{
+  "name": "ESO Management System",
+  "short_name": "ESO",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eaf0f7",
+  "theme_color": "#071426",
+  "icons": []
+}
