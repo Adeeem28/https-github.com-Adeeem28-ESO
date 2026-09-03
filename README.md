@@ -55,3 +55,8 @@ The live ESO Supabase project has already received the v4 notifications-table mi
 - Employee dashboard also shows Employee With Most ESO YTD
 - Mobile dashboard keeps the two highlight cards side-by-side at 100% browser zoom
 - Department Performance returns to full-width for better readability
+
+
+## v5.2 fixes
+- Global Employee with Most ESO YTD is calculated across all active employees for every role.
+- PWA/app icon artwork reduced inside the safe area for Android launcher masks.
