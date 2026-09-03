@@ -60,3 +60,11 @@ The live ESO Supabase project has already received the v4 notifications-table mi
 ## v5.2 fixes
 - Global Employee with Most ESO YTD is calculated across all active employees for every role.
 - PWA/app icon artwork reduced inside the safe area for Android launcher masks.
+
+
+## V5.3 tracking additions
+- Top ESO Resolvers leaderboard based on completed corrective-action tasks.
+- ESO Reported per Month using calendar-month buckets (1st to 1st, Europe/Sarajevo).
+- ESO Resolved per Month using task completion timestamps.
+- ESO Details now shows Resolved By and Resolved At.
+- Raw/Excel exports include Resolved By fields.
