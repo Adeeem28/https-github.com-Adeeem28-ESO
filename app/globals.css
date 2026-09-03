@@ -302,3 +302,11 @@
  .resolver-metric{min-width:62px}.resolver-metric:first-of-type{grid-area:ytd}.resolver-metric:last-of-type{grid-area:month}
  .resolver-metric strong{font-size:15px}.resolver-metric span{font-size:6.5px}
 }
+
+/* V5.4 balanced tracking leaderboards */
+.leaderboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.reporter-panel{border-top:4px solid var(--blue)}
+.leaderboard-grid .resolver-row{grid-template-columns:34px minmax(0,1fr) 92px 84px;gap:8px;padding:9px 10px}
+.leaderboard-grid .resolver-person b{font-size:13px}
+@media(max-width:900px){.leaderboard-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.leaderboard-grid{gap:10px}.reporter-panel{padding:10px}.leaderboard-grid .resolver-row{grid-template-columns:28px minmax(0,1fr) auto;grid-template-areas:"rank person ytd" "rank person month";gap:2px 8px;padding:8px}.leaderboard-grid .resolver-rank{grid-area:rank}.leaderboard-grid .resolver-person{grid-area:person}.leaderboard-grid .resolver-metric:first-of-type{grid-area:ytd}.leaderboard-grid .resolver-metric:last-of-type{grid-area:month}}

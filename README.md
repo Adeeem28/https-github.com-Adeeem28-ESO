@@ -68,3 +68,7 @@ The live ESO Supabase project has already received the v4 notifications-table mi
 - ESO Resolved per Month using task completion timestamps.
 - ESO Details now shows Resolved By and Resolved At.
 - Raw/Excel exports include Resolved By fields.
+
+## v5.4.1 dashboard cleanup
+- Removed duplicate Employee Target Tracker from the main dashboard; full tracker remains in its dedicated Employee Tracker tab.
+- Latest ESO Submissions remains as the final dashboard section and now shows the 10 latest reports.

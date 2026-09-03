@@ -5,7 +5,8 @@ import type {AppNotification,Department,ESOReport,Location,Role,Urgency,User} fr
 type View="dashboard"|"report"|"my-history"|"all-reports"|"maintenance"|"employees"|"departments"|"locations"|"exports";
 type MonthlyTrackingPoint={month:number;label:string;reported:number;resolved:number};
 type ResolverStat={id:string;name:string;employeeId:string;department:string;role:string;resolvedYtd:number;resolvedThisMonth:number};
-type TrackingData={year:number;currentMonth:number;monthly:MonthlyTrackingPoint[];resolverLeaderboard:ResolverStat[]};
+type ReporterStat={id:string;name:string;employeeId:string;department:string;role:string;reportedYtd:number;reportedThisMonth:number};
+type TrackingData={year:number;currentMonth:number;monthly:MonthlyTrackingPoint[];reporterLeaderboard:ReporterStat[];resolverLeaderboard:ResolverStat[]};
 const canAdmin=(r?:Role)=>r==="Admin"||r==="Super Admin";
 const canMaintain=(r?:Role)=>r==="Maintenance"||r==="Supervisor"||canAdmin(r);
 const canViewAll=(r?:Role)=>r==="Management"||canAdmin(r);
@@ -79,8 +80,7 @@ function Dashboard({user,users,reports,topEmployeeYtd,tracking,onReport,onOpen}:
   </div>
   <DepartmentPerformance users={users} reports={reports}/>
   {tracking&&<TrackingInsights tracking={tracking}/>}
-  <div className="panel"><div className="panel-head"><h3>Employee Target Tracker <span>• 12 ESO / YEAR</span></h3></div><EmployeeTable users={users.filter(u=>u.active)} reports={reports}/></div>
-  <ReportsTable title="Latest ESO Submissions" reports={reports.slice(0,8)} users={users} onOpen={onOpen}/>
+  <ReportsTable title="Latest ESO Submissions" reports={reports.slice(0,10)} users={users} onOpen={onOpen}/>
  </div>
 }
 function TrackingInsights({tracking}:{tracking:TrackingData}){
@@ -91,8 +91,13 @@ function TrackingInsights({tracking}:{tracking:TrackingData}){
    <MonthlyPanel title="ESO Reported per Month" subtitle={`Calendar month • 1st to 1st • ${tracking.year}`} data={tracking.monthly} field="reported" max={maxReported} currentValue={current?.reported||0} currentMonth={tracking.currentMonth}/>
    <MonthlyPanel title="ESO Resolved per Month" subtitle={`Calendar month • 1st to 1st • ${tracking.year}`} data={tracking.monthly} field="resolved" max={maxResolved} currentValue={current?.resolved||0} currentMonth={tracking.currentMonth}/>
   </div>
-  <div className="panel resolver-panel"><div className="panel-head"><h3>Top ESO Resolvers <span>• {tracking.year} YTD</span></h3><span>Who completed assigned corrective-action tasks</span></div>
-   {tracking.resolverLeaderboard.length===0?<div className="empty">No resolved ESO tasks recorded yet.</div>:<div className="resolver-list">{tracking.resolverLeaderboard.slice(0,10).map((r,i)=><div className="resolver-row" key={r.id}><div className={`resolver-rank rank-${i+1}`}>{i+1}</div><div className="resolver-person"><b>{r.name}</b><span>{r.department} • {r.role}{r.employeeId?` • ID ${r.employeeId}`:''}</span></div><div className="resolver-metric"><strong>{r.resolvedYtd}</strong><span>Resolved YTD</span></div><div className="resolver-metric"><strong>{r.resolvedThisMonth}</strong><span>This month</span></div></div>)}</div>}
+  <div className="leaderboard-grid">
+   <div className="panel reporter-panel"><div className="panel-head"><h3>Top ESO Reporters <span>• {tracking.year} YTD</span></h3><span>Who reported the most ESO opportunities</span></div>
+    {tracking.reporterLeaderboard.length===0?<div className="empty">No ESO reports recorded yet.</div>:<div className="resolver-list">{tracking.reporterLeaderboard.slice(0,10).map((r,i)=><div className="resolver-row" key={r.id}><div className={`resolver-rank rank-${i+1}`}>{i+1}</div><div className="resolver-person"><b>{r.name}</b><span>{r.department} • {r.role}{r.employeeId?` • ID ${r.employeeId}`:''}</span></div><div className="resolver-metric"><strong>{r.reportedYtd}</strong><span>Reported YTD</span></div><div className="resolver-metric"><strong>{r.reportedThisMonth}</strong><span>This month</span></div></div>)}</div>}
+   </div>
+   <div className="panel resolver-panel"><div className="panel-head"><h3>Top ESO Resolvers <span>• {tracking.year} YTD</span></h3><span>Who completed assigned corrective-action tasks</span></div>
+    {tracking.resolverLeaderboard.length===0?<div className="empty">No resolved ESO tasks recorded yet.</div>:<div className="resolver-list">{tracking.resolverLeaderboard.slice(0,10).map((r,i)=><div className="resolver-row" key={r.id}><div className={`resolver-rank rank-${i+1}`}>{i+1}</div><div className="resolver-person"><b>{r.name}</b><span>{r.department} • {r.role}{r.employeeId?` • ID ${r.employeeId}`:''}</span></div><div className="resolver-metric"><strong>{r.resolvedYtd}</strong><span>Resolved YTD</span></div><div className="resolver-metric"><strong>{r.resolvedThisMonth}</strong><span>This month</span></div></div>)}</div>}
+   </div>
   </div>
  </div>
 }

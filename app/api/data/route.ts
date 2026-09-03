@@ -102,6 +102,21 @@ export async function GET() {
     if(p.month===nowParts.month) cur.month++;
     resolverCounts.set(resolver,cur);
   }
+  const reporterCounts=new Map<string,{ytd:number;month:number}>();
+  for(const r of trackingReports||[]){
+    if(!r.reporter_id||!r.reported_at) continue;
+    const p=localParts(r.reported_at);
+    if(p.year!==year) continue;
+    const cur=reporterCounts.get(r.reporter_id)||{ytd:0,month:0};
+    cur.ytd++;
+    if(p.month===nowParts.month) cur.month++;
+    reporterCounts.set(r.reporter_id,cur);
+  }
+  const reporterLeaderboard=Array.from(reporterCounts.entries()).map(([id,c])=>{
+    const u:any=userById.get(id);
+    return {id,name:u?.name||'Unknown user',employeeId:u?.employeeId||'',department:u?.department||'—',role:u?.role||'—',reportedYtd:c.ytd,reportedThisMonth:c.month};
+  }).sort((a:any,b:any)=>b.reportedYtd-a.reportedYtd||b.reportedThisMonth-a.reportedThisMonth||a.name.localeCompare(b.name));
+
   const resolverLeaderboard=Array.from(resolverCounts.entries()).map(([id,c])=>{
     const u:any=userById.get(id);
     return {id,name:u?.name||'Unknown user',employeeId:u?.employeeId||'',department:u?.department||'—',role:u?.role||'—',resolvedYtd:c.ytd,resolvedThisMonth:c.month};
@@ -114,7 +129,7 @@ export async function GET() {
     users:privilegedUsers?users:[current],
     reports:mapped,
     topEmployeeYtd:globalTop,
-    tracking:{year,currentMonth:nowParts.month,monthly,resolverLeaderboard},
+    tracking:{year,currentMonth:nowParts.month,monthly,reporterLeaderboard,resolverLeaderboard},
     departments:(deps||[]).map((d:any)=>({id:d.id,name:d.name,code:d.code||null,active:d.active})),
     locations:(locs||[]).map((l:any)=>({id:l.id,name:l.name,active:l.active,departmentId:l.department_id,departmentName:l.departments?.name||null}))
   });
