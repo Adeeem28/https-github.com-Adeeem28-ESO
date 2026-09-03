@@ -51,7 +51,7 @@ export async function GET() {
     currentUser:current,
     users:privilegedUsers?users:[current],
     reports:mapped,
-    departments:(deps||[]).map((d:any)=>({id:d.id,name:d.name,active:d.active})),
+    departments:(deps||[]).map((d:any)=>({id:d.id,name:d.name,code:d.code||null,active:d.active})),
     locations:(locs||[]).map((l:any)=>({id:l.id,name:l.name,active:l.active,departmentId:l.department_id,departmentName:l.departments?.name||null}))
   });
 }

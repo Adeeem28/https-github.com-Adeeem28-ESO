@@ -1,3 +1,7 @@
+# ESO Management System v4.1
+
+This release adds Admin/Super Admin Department Management (add, edit, code, activate/deactivate) and a dedicated mobile UI pass for 0–650 px screens.
+
 # ESO Management System — v4
 
 Next.js + TypeScript web application for Environmental & Safety Opportunities (ESO), designed for StackBlitz → GitHub → Vercel with Supabase as the shared backend.
