@@ -72,3 +72,8 @@ The live ESO Supabase project has already received the v4 notifications-table mi
 ## v5.4.1 dashboard cleanup
 - Removed duplicate Employee Target Tracker from the main dashboard; full tracker remains in its dedicated Employee Tracker tab.
 - Latest ESO Submissions remains as the final dashboard section and now shows the 10 latest reports.
+
+
+## v5.4.2
+- Dashboard Top ESO Reporters limited to Top 5.
+- Dashboard Top ESO Resolvers limited to Top 5.
