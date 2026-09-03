@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, sessionUser, roleName, canAdmin, canMaintain } from '@/lib/server';
+import { db, sessionUser, roleName, canAdmin, canMaintain, canViewAll } from '@/lib/server';
 
 export async function GET() {
   const me:any = await sessionUser();
@@ -7,7 +7,7 @@ export async function GET() {
 
   const [{data:deps},{data:locs},{data:emps}] = await Promise.all([
     db.from('departments').select('*').order('name'),
-    db.from('locations').select('*').eq('active',true).order('name'),
+    db.from('locations').select('id,name,active,department_id,departments(name)').order('name'),
     db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,department_id,departments(name)').order('last_name')
   ]);
 
@@ -16,9 +16,12 @@ export async function GET() {
     .order('reported_at',{ascending:false});
 
   if (me.role === 'employee') q = q.eq('reporter_id',me.id);
-  else if (me.role === 'maintenance' || me.role === 'supervisor') q = q.or(`reporter_id.eq.${me.id},maintenance_tasks.assigned_to.eq.${me.id}`);
 
-  const {data:reports,error:reportError} = await q;
+  const {data:allReports,error:reportError} = await q;
+  const reports=(me.role==='maintenance'||me.role==='supervisor')?(allReports||[]).filter((r:any)=>{
+    const task=Array.isArray(r.maintenance_tasks)?r.maintenance_tasks[0]:r.maintenance_tasks;
+    return r.reporter_id===me.id||task?.assigned_to===me.id;
+  }):allReports;
   if(reportError) return NextResponse.json({error:reportError.message},{status:400});
 
   const users = (emps||[]).map((e:any)=>({
@@ -32,21 +35,23 @@ export async function GET() {
     const signed=async(a:any)=>{if(!a)return undefined;const {data}=await db.storage.from('eso-attachments').createSignedUrl(a.storage_path,3600);return data?.signedUrl};
     const [imageData,completionImageData]=await Promise.all([signed(reportAttachment),signed(completionAttachment)]);
     const ca=(r.corrective_actions||[]).slice().sort((a:any,b:any)=>String(a.created_at).localeCompare(String(b.created_at))).at(-1);
+    const task=Array.isArray(r.maintenance_tasks)?r.maintenance_tasks[0]:r.maintenance_tasks;
     return {
       id:r.id,esoNo:r.report_no,reporterId:r.reporter_id,createdAt:r.reported_at,location:r.locations?.name||'Unknown',
       category:r.category==='environmental'?'Environmental':'Safety',urgency:r.urgency[0].toUpperCase()+r.urgency.slice(1),description:r.description,
       imageData,imageName:reportAttachment?.file_name,completionImageData,completionImageName:completionAttachment?.file_name,
       status:r.status==='completed'||r.status==='closed'?'Completed':r.status==='in_progress'||r.status==='assigned'||r.status==='waiting'?'In Progress':'Open',
-      assignedTo:r.maintenance_tasks?.[0]?.assigned_to||undefined,taskStatus:r.maintenance_tasks?.[0]?.status||undefined,correctiveAction:ca?.action_text||r.maintenance_tasks?.[0]?.completion_note||undefined,completedAt:r.completed_at
+      assignedTo:task?.assigned_to||undefined,taskStatus:task?.status||undefined,correctiveAction:ca?.action_text||task?.completion_note||undefined,completedAt:r.completed_at
     };
   }));
 
   const current=users.find((u:any)=>u.id===me.id);
+  const privilegedUsers=canAdmin(me.role)||canMaintain(me.role)||canViewAll(me.role);
   return NextResponse.json({
     currentUser:current,
-    users:canAdmin(me.role)||canMaintain(me.role)?users:[current],
+    users:privilegedUsers?users:[current],
     reports:mapped,
     departments:(deps||[]).map((d:any)=>({id:d.id,name:d.name,active:d.active})),
-    locations:(locs||[]).map((l:any)=>({id:l.id,name:l.name}))
+    locations:(locs||[]).map((l:any)=>({id:l.id,name:l.name,active:l.active,departmentId:l.department_id,departmentName:l.departments?.name||null}))
   });
 }

@@ -1,40 +1,44 @@
-# ESO Management System — Release v3
+# ESO Management System — v4
 
-Next.js + TypeScript + Supabase production release for Environmental & Safety Opportunities.
+Next.js + TypeScript web application for Environmental & Safety Opportunities (ESO), designed for StackBlitz → GitHub → Vercel with Supabase as the shared backend.
 
-## v3 changes
-- Separate **Take Photo** and **Choose from Gallery** actions when submitting ESO.
-- Same camera/gallery options for **Completion / After Photo** when a corrective task is completed.
-- Employee, Maintenance, Supervisor, Admin and Super Admin can all submit ESO reports.
-- New **Supervisor** role.
-- Admin / Super Admin can assign ESO corrective tasks to Maintenance or Supervisor users.
-- Maintenance / Supervisor users get a **My Tasks** list showing work assigned to them and can start and complete their tasks.
-- Completing a task supports corrective-action text plus an optional completion photo.
-- Admin / Super Admin can also complete assigned tasks.
-- ESO detail view shows the original reported photo and the completion/after photo.
-- Admin / Super Admin can edit user name, department, role and annual ESO target, reset privileged-user passwords and safe-delete/deactivate users.
-- Maintenance, Supervisor, Admin and Super Admin can change their own password from the sidebar.
-- PWA manifest and install icons included.
-- Compact mobile layout retained and further tightened.
+## Roles
+- Employee — Employee ID login, Report ESO, own history and annual target.
+- Maintenance — ID + password, Report ESO, own history, assigned My Tasks, corrective action and completion photo.
+- Supervisor — ID + password, same task workflow as Maintenance.
+- Management — ID + password, company dashboard, all ESO reports, notifications and data/report exports. No user administration.
+- Admin — Management access plus user management, location management and task assignment.
+- Super Admin — full Admin access, including Super Admin account management.
 
-## Vercel environment variables
-Set these in Production and Preview:
+## v4 additions
+- Maintenance/Supervisor session routing fix.
+- New Management role.
+- In-app notifications with unread badge, mark-read behavior and direct ESO opening.
+- Admin/Super Admin location management: add, edit, activate/deactivate.
+- Bulk employee import from Excel with downloadable template and validation results.
+- Excel management report export with ESO Data, Summary, Department Summary and Employee Performance sheets.
+- Raw CSV and JSON exports for Power BI, integrations and other downstream uses.
+- Active/inactive user handling: Delete User disables login and removes the user from normal active lists while retaining historical ESO references.
+- Employee role changes include Employee, Maintenance, Supervisor, Management, Admin and Super Admin (subject to permissions).
+- All non-Employee roles retain Change Password.
+- Camera and Gallery remain separate upload choices both on new ESO reports and task completion.
 
+## Required environment variables
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_...
-APP_SESSION_SECRET=a-long-random-secret-at-least-32-characters
+APP_SESSION_SECRET=use-a-long-random-secret
+```
+Set them in Vercel for Production and Preview.
+
+## StackBlitz / local
+```bash
+npm install
+npm run dev
 ```
 
-Do not commit the Supabase secret key to GitHub.
+## Vercel
+Push this release to the GitHub `main` branch. Vercel should automatically create a new Production deployment.
 
-## Deploy
-1. Upload/replace the repository files with this release.
-2. Commit to `main`.
-3. Vercel should automatically deploy the new commit.
-4. If automatic deployment is disabled, redeploy the latest `main` commit.
-
-## Important user behavior
-Employee accounts use Employee ID only. Maintenance, Supervisor, Admin and Super Admin use Employee ID + password.
-
-Deleting a user in the UI is implemented as **safe deletion/deactivation**, preserving historical ESO reports and audit data.
+## Supabase
+The live ESO Supabase project has already received the v4 notifications-table migration and the Management role constraint was applied previously. `supabase/v4_migration.sql` is included as a reference for another environment.

@@ -10,7 +10,22 @@ export const db = createClient(url, secret, { auth: { persistSession: false, aut
 function sign(value:string){return crypto.createHmac('sha256',sessionSecret).update(value).digest('hex')}
 export async function setSession(userId:string){const c=await cookies(); const v=`${userId}.${sign(userId)}`; c.set('eso_session',v,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*12});}
 export async function clearSession(){(await cookies()).delete('eso_session')}
-export async function sessionUser(){const raw=(await cookies()).get('eso_session')?.value;if(!raw)return null;const [id,sig]=raw.split('.');if(!id||!sig||!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(sign(id))))return null;const {data}=await db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,departments(name)').eq('id',id).single();return data?.active?data:null;}
-export function roleName(role:string){return role==='super_admin'?'Super Admin':role==='admin'?'Admin':role==='supervisor'?'Supervisor':role==='maintenance'?'Maintenance':'Employee'}
+export async function sessionUser(){
+  const raw=(await cookies()).get('eso_session')?.value;if(!raw)return null;
+  const [id,sig]=raw.split('.');if(!id||!sig)return null;
+  const expected=sign(id);if(sig.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return null;
+  const {data}=await db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,departments(name)').eq('id',id).single();
+  return data?.active?data:null;
+}
+export function roleName(role:string){return role==='super_admin'?'Super Admin':role==='admin'?'Admin':role==='management'?'Management':role==='supervisor'?'Supervisor':role==='maintenance'?'Maintenance':'Employee'}
 export function canAdmin(role:string){return role==='admin'||role==='super_admin'}
 export function canMaintain(role:string){return role==='maintenance'||role==='supervisor'||canAdmin(role)}
+export function canViewAll(role:string){return role==='management'||canAdmin(role)}
+export function canManageLocations(role:string){return canAdmin(role)}
+export async function notify(userId:string,type:string,title:string,message?:string,esoReportId?:string,maintenanceTaskId?:string){
+  await db.from('notifications').insert({user_id:userId,type,title,message:message||null,eso_report_id:esoReportId||null,maintenance_task_id:maintenanceTaskId||null});
+}
+export async function notifyRoles(roles:string[],type:string,title:string,message?:string,esoReportId?:string){
+  const {data}=await db.from('employees').select('id').eq('active',true).in('role',roles);
+  if(data?.length) await db.from('notifications').insert(data.map(x=>({user_id:x.id,type,title,message:message||null,eso_report_id:esoReportId||null})));
+}
