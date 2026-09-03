@@ -46,3 +46,12 @@ Push this release to the GitHub `main` branch. Vercel should automatically creat
 
 ## Supabase
 The live ESO Supabase project has already received the v4 notifications-table migration and the Management role constraint was applied previously. `supabase/v4_migration.sql` is included as a reference for another environment.
+
+## v5.1 UI / PWA update
+- Approved navy/orange ESO safety brand and app icon
+- Real PWA service worker registration for installable app behavior
+- Four primary KPI cards with visual status icons
+- Critical Open + Employee With Most ESO YTD in a 50/50 highlight row
+- Employee dashboard also shows Employee With Most ESO YTD
+- Mobile dashboard keeps the two highlight cards side-by-side at 100% browser zoom
+- Department Performance returns to full-width for better readability
