@@ -332,3 +332,11 @@
  .kpi-modal .modal-head{padding:14px 16px}.kpi-modal .modal-head h2{font-size:18px}.kpi-modal .modal-body{padding:9px}
  .clickable-kpi:hover{transform:none}
 }
+
+/* v5.5.2 Employee Tracker search */
+.employee-search{min-width:300px;max-width:480px;flex:1;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:0 10px;color:var(--muted)}
+.employee-search:focus-within{border-color:#79a4ff;box-shadow:0 0 0 3px #edf3ff}
+.employee-search input{width:100%;border:0!important;outline:0;background:transparent;padding:10px 2px;color:var(--text)}
+.employee-search button{border:0;background:transparent;color:var(--muted);display:grid;place-items:center;padding:4px}
+.employee-result-count{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:10px}
+@media(max-width:650px){.employee-search{min-width:0;max-width:none;width:100%}.employee-tracker-toolbar{gap:8px}.employee-result-count{margin-bottom:6px}}
