@@ -46,7 +46,7 @@ export default function ESOApp(){
    {view==='locations'&&<Locations currentUser={currentUser} locations={locations} departments={departments} reload={load}/>}
    {view==='exports'&&<Exports departments={departments}/>}
   </main>
-  <MobileQuickNav user={currentUser} view={view} go={go}/>
+  {!mobileNav&&<MobileQuickNav user={currentUser} view={view} go={go}/>}
   {selected&&<ReportModal report={selected} users={users} onClose={()=>setSelected(null)}/>}
   {passwordOpen&&<PasswordModal onClose={()=>setPasswordOpen(false)}/>}
   {notificationsOpen&&<NotificationsPanel notifications={notifications} reports={reports} onClose={()=>setNotificationsOpen(false)} onOpenReport={(id)=>{const r=reports.find(x=>x.id===id);if(r)setSelected(r);setNotificationsOpen(false)}} reload={loadNotifications}/>}
