@@ -46,43 +46,50 @@ export default function ESOApp(){
    {view==='locations'&&<Locations currentUser={currentUser} locations={locations} departments={departments} reload={load}/>}
    {view==='exports'&&<Exports departments={departments}/>}
   </main>
+  <MobileQuickNav user={currentUser} view={view} go={go}/>
   {selected&&<ReportModal report={selected} users={users} onClose={()=>setSelected(null)}/>}
   {passwordOpen&&<PasswordModal onClose={()=>setPasswordOpen(false)}/>}
   {notificationsOpen&&<NotificationsPanel notifications={notifications} reports={reports} onClose={()=>setNotificationsOpen(false)} onOpenReport={(id)=>{const r=reports.find(x=>x.id===id);if(r)setSelected(r);setNotificationsOpen(false)}} reload={loadNotifications}/>}
  </div>
 }
+function MobileQuickNav({user,view,go}:{user:User,view:View,go:(v:View)=>void}){const items:{view:View,label:string,icon:React.ReactNode}[]=[{view:'dashboard',label:'Home',icon:<Home size={19}/>},{view:'my-history',label:'My ESO',icon:<ClipboardList size={19}/>}];if(canMaintain(user.role))items.push({view:'maintenance',label:'Actions',icon:<Wrench size={19}/>});if(canAdmin(user.role))items.push({view:'employees',label:'Tracker',icon:<Users size={19}/>});items.push({view:'report',label:'Report',icon:<Plus size={20}/>});return <nav className="mobile-quick-nav" aria-label="Quick navigation">{items.map(i=><button key={i.view} className={view===i.view?'active':''} onClick={()=>go(i.view)}>{i.icon}<span>{i.label}</span></button>)}</nav>}
+
 function Nav({icon,label,active,onClick}:{icon:React.ReactNode,label:string,active:boolean,onClick:()=>void}){return <button className={`nav-btn ${active?'active':''}`} onClick={onClick}>{icon}<span>{label}</span><ChevronRight size={15}/></button>}
 function Login({onLogin}:{onLogin:()=>Promise<void>}){const[id,setId]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await json('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({employeeId:id,password})});await onLogin()}catch(e:any){setError(e.message)}finally{setBusy(false)}};return <div className="login-page"><div className="login-brand"><span className="login-logo"><img src="/eso-shield.png" alt="ESO safety shield"/></span><div><span>ESO</span><small>Environment &amp; Safety Opportunity</small></div></div><form className="login-card" onSubmit={submit}><div className="login-icon"><ShieldCheck size={30}/></div><h1>Welcome</h1><p>Enter your Employee ID to continue.</p><label>Employee ID<input autoFocus value={id} onChange={e=>setId(e.target.value)} placeholder="e.g. 10001"/></label><label>Password <small>(privileged roles only)</small><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Leave blank for Employee"/></label>{error&&<div className="form-error">{error}</div>}<button className="primary-btn" disabled={busy}>{busy?'SIGNING IN…':'LOG IN'}</button></form></div>}
 function Title({title,subtitle}:{title:string,subtitle?:string}){return <div className="page-title"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div></div>}
 function Badge({text}:{text:string}){return <span className={`badge ${text.toLowerCase().replaceAll(' ','-')}`}>{text}</span>}
-function TopEmployeeCard({top}:{top:{id:string,name:string,employeeId:string,count:number}|null}){return <div className="top-employee-card"><div className="top-employee-icon"><Trophy size={26}/></div><div className="top-employee-copy"><span>EMPLOYEE WITH MOST ESO YTD</span><strong>{top?.name||'No submissions yet'}</strong>{top&&<em>ID {top.employeeId}</em>}</div><div className="top-employee-score"><b>{top?.count||0}</b><small>ESO YTD</small></div></div>}
-function StatCard({label,value,color,icon}:{label:string,value:number,color:string,icon:React.ReactNode}){return <div className={`stat-card ${color}`}><div><span>{label}</span><strong>{value}</strong></div><div className="stat-icon">{icon}</div></div>}
+function TopEmployeeCard({top,onClick}:{top:{id:string,name:string,employeeId:string,count:number}|null,onClick?:()=>void}){return <div className={`top-employee-card ${onClick?'clickable-kpi':''}`} role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' '))onClick()}}><div className="top-employee-icon"><Trophy size={26}/></div><div className="top-employee-copy"><span>EMPLOYEE WITH MOST ESO YTD</span><strong>{top?.name||'No submissions yet'}</strong>{top&&<em>ID {top.employeeId}</em>}</div><div className="top-employee-score"><b>{top?.count||0}</b><small>ESO YTD</small></div></div>}
+function StatCard({label,value,color,icon,onClick}:{label:string,value:number,color:string,icon:React.ReactNode,onClick?:()=>void}){return <div className={`stat-card ${color} ${onClick?'clickable-kpi':''}`} role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' '))onClick()}}><div><span>{label}</span><strong>{value}</strong></div><div className="stat-icon">{icon}</div></div>}
 function Dashboard({user,users,reports,topEmployeeYtd,tracking,onReport,onOpen}:{user:User,users:User[],reports:ESOReport[],topEmployeeYtd:{id:string,name:string,employeeId:string,count:number}|null,tracking:TrackingData|null,onReport:()=>void,onOpen:(r:ESOReport)=>void}){
+ const[kpiView,setKpiView]=useState<{title:string;reports:ESOReport[]}|null>(null);
  const year=new Date().getFullYear(),yr=reports.filter(r=>new Date(r.createdAt).getFullYear()===year);
  if(user.role==='Employee'){
   const mine=yr.filter(r=>r.reporterId===user.id),pct=Math.min(100,Math.round(mine.length/user.annualTarget*100));
   return <div className="page"><Title title="My ESO Dashboard" subtitle={`${user.name} • ${user.department}`}/>
-   <div className="employee-dashboard-row"><div className="employee-hero"><div><span>ANNUAL ESO TARGET</span><h2>{mine.length} <small>/ {user.annualTarget}</small></h2><div className="progress"><i style={{width:`${pct}%`}}/></div><p>{Math.max(0,user.annualTarget-mine.length)} reports remaining</p></div><button className="report-big" onClick={onReport}><Plus size={24}/> REPORT ESO</button></div><TopEmployeeCard top={topEmployeeYtd}/></div>
-   <ReportsTable title="Recent submissions" reports={mine.slice(0,5)} users={users} onOpen={onOpen}/></div>
+   <div className="employee-dashboard-row"><div className="employee-hero clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:`My ESO YTD — ${year}`,reports:mine})}><div><span>ANNUAL ESO TARGET</span><h2>{mine.length} <small>/ {user.annualTarget}</small></h2><div className="progress"><i style={{width:`${pct}%`}}/></div><p>{Math.max(0,user.annualTarget-mine.length)} reports remaining</p></div><button className="report-big" onClick={e=>{e.stopPropagation();onReport()}}><Plus size={24}/> REPORT ESO</button></div><TopEmployeeCard top={topEmployeeYtd}/></div>
+   <ReportsTable title="Recent submissions" reports={mine.slice(0,5)} users={users} onOpen={onOpen}/>{kpiView&&<KpiReportsModal title={kpiView.title} reports={kpiView.reports} users={users} onOpen={onOpen} onClose={()=>setKpiView(null)}/>}</div>
  }
  const open=reports.filter(r=>r.status==='Open').length,inProgress=reports.filter(r=>r.status==='In Progress').length,completed=reports.filter(r=>r.status==='Completed').length,critical=reports.filter(r=>r.urgency==='Critical'&&r.status!=='Completed').length;
  return <div className="page">
   <div className="dashboard-heading"><Title title="ESO Dashboard" subtitle={`${year} performance overview`}/><button className="primary-btn compact" onClick={onReport}><Plus size={17}/> REPORT ESO</button></div>
   <div className="stat-grid stat-grid-primary">
-   <StatCard label="ESO YTD" value={yr.length} color="blue" icon={<FileText size={22}/>}/>
-   <StatCard label="OPEN" value={open} color="orange" icon={<AlertCircle size={22}/>}/>
-   <StatCard label="IN PROGRESS" value={inProgress} color="purple" icon={<LoaderCircle size={22}/>}/>
-   <StatCard label="COMPLETED" value={completed} color="green" icon={<CheckCircle2 size={22}/>}/>
+   <StatCard label="ESO YTD" value={yr.length} color="blue" icon={<FileText size={22}/>} onClick={()=>setKpiView({title:`All ESO YTD — ${year}`,reports:yr})}/>
+   <StatCard label="OPEN" value={open} color="orange" icon={<AlertCircle size={22}/>} onClick={()=>setKpiView({title:"Open ESO",reports:reports.filter(r=>r.status==='Open')})}/>
+   <StatCard label="IN PROGRESS" value={inProgress} color="purple" icon={<LoaderCircle size={22}/>} onClick={()=>setKpiView({title:"ESO In Progress",reports:reports.filter(r=>r.status==='In Progress')})}/>
+   <StatCard label="COMPLETED" value={completed} color="green" icon={<CheckCircle2 size={22}/>} onClick={()=>setKpiView({title:"Completed ESO",reports:reports.filter(r=>r.status==='Completed')})}/>
   </div>
   <div className="dashboard-highlight-row">
-   <div className="critical-highlight"><div><span>CRITICAL OPEN</span><strong>{critical}</strong></div><div className="critical-icon"><ShieldAlert size={26}/></div></div>
-   <TopEmployeeCard top={topEmployeeYtd}/>
+   <div className="critical-highlight clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:"Critical Open ESO",reports:reports.filter(r=>r.urgency==='Critical'&&r.status!=='Completed')})}><div><span>CRITICAL OPEN</span><strong>{critical}</strong></div><div className="critical-icon"><ShieldAlert size={26}/></div></div>
+   <TopEmployeeCard top={topEmployeeYtd} onClick={()=>topEmployeeYtd&&setKpiView({title:`${topEmployeeYtd.name} — ESO YTD`,reports:yr.filter(r=>r.reporterId===topEmployeeYtd.id)})}/>
   </div>
   <DepartmentPerformance users={users} reports={reports}/>
   {tracking&&<TrackingInsights tracking={tracking}/>}
   <ReportsTable title="Latest ESO Submissions" reports={reports.slice(0,10)} users={users} onOpen={onOpen}/>
+  {kpiView&&<KpiReportsModal title={kpiView.title} reports={kpiView.reports} users={users} onOpen={onOpen} onClose={()=>setKpiView(null)}/>}
  </div>
 }
+function KpiReportsModal({title,reports,users,onOpen,onClose}:{title:string,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void,onClose:()=>void}){return <div className="modal-backdrop"><div className="modal kpi-modal"><div className="modal-head"><div><h2>{title}</h2><span>{reports.length} records</span></div><button onClick={onClose}><X/></button></div><div className="modal-body"><ReportsTable title={title} reports={reports} users={users} onOpen={(r)=>{onOpen(r);onClose()}}/></div></div></div>}
+
 function TrackingInsights({tracking}:{tracking:TrackingData}){
  const maxReported=Math.max(1,...tracking.monthly.map(x=>x.reported)),maxResolved=Math.max(1,...tracking.monthly.map(x=>x.resolved));
  const current=tracking.monthly[tracking.currentMonth-1];

@@ -77,3 +77,8 @@ The live ESO Supabase project has already received the v4 notifications-table mi
 ## v5.4.2
 - Dashboard Top ESO Reporters limited to Top 5.
 - Dashboard Top ESO Resolvers limited to Top 5.
+
+## V5.5 UX update
+- Dashboard KPI cards are drill-down enabled (YTD, Open, In Progress, Completed, Critical Open, Top Employee).
+- Mobile bottom quick navigation added for Dashboard, My ESO, Corrective Actions (when available), Employee Tracker (Admin/Super Admin), and Report ESO.
+- Full hamburger sidebar remains available for less-frequent/admin pages.
