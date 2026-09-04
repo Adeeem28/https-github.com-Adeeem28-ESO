@@ -14,7 +14,7 @@ export async function sessionUser(){
   const raw=(await cookies()).get('eso_session')?.value;if(!raw)return null;
   const [id,sig]=raw.split('.');if(!id||!sig)return null;
   const expected=sign(id);if(sig.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return null;
-  const {data}=await db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,departments(name)').eq('id',id).single();
+  const {data}=await db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,company_id,departments(name),companies(name,code)').eq('id',id).single();
   return data?.active?data:null;
 }
 export function roleName(role:string){return role==='super_admin'?'Super Admin':role==='admin'?'Admin':role==='management'?'Management':role==='supervisor'?'Supervisor':role==='maintenance'?'Maintenance':'Employee'}
@@ -23,9 +23,10 @@ export function canMaintain(role:string){return role==='maintenance'||role==='su
 export function canViewAll(role:string){return role==='management'||canAdmin(role)}
 export function canManageLocations(role:string){return canAdmin(role)}
 export async function notify(userId:string,type:string,title:string,message?:string,esoReportId?:string,maintenanceTaskId?:string){
-  await db.from('notifications').insert({user_id:userId,type,title,message:message||null,eso_report_id:esoReportId||null,maintenance_task_id:maintenanceTaskId||null});
+  const {data:u}=await db.from('employees').select('company_id').eq('id',userId).single(); if(!u?.company_id)return;
+  await db.from('notifications').insert({company_id:u.company_id,user_id:userId,type,title,message:message||null,eso_report_id:esoReportId||null,maintenance_task_id:maintenanceTaskId||null});
 }
-export async function notifyRoles(roles:string[],type:string,title:string,message?:string,esoReportId?:string){
-  const {data}=await db.from('employees').select('id').eq('active',true).in('role',roles);
-  if(data?.length) await db.from('notifications').insert(data.map(x=>({user_id:x.id,type,title,message:message||null,eso_report_id:esoReportId||null})));
+export async function notifyRoles(companyId:string,roles:string[],type:string,title:string,message?:string,esoReportId?:string){
+  const {data}=await db.from('employees').select('id').eq('company_id',companyId).eq('active',true).in('role',roles);
+  if(data?.length) await db.from('notifications').insert(data.map(x=>({company_id:companyId,user_id:x.id,type,title,message:message||null,eso_report_id:esoReportId||null})));
 }

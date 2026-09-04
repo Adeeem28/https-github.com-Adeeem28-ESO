@@ -15,9 +15,9 @@ export async function GET() {
   if (!me) return NextResponse.json({error:'Unauthorized'},{status:401});
 
   const [{data:deps},{data:locs},{data:emps}] = await Promise.all([
-    db.from('departments').select('*').order('name'),
-    db.from('locations').select('id,name,active,department_id,departments(name)').order('name'),
-    db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,department_id,departments(name)').order('last_name')
+    db.from('departments').select('*').eq('company_id',me.company_id).order('name'),
+    db.from('locations').select('id,name,active,department_id,departments(name)').eq('company_id',me.company_id).order('name'),
+    db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,department_id,departments(name)').eq('company_id',me.company_id).order('last_name')
   ]);
 
   const nowParts=localParts(new Date());
@@ -26,15 +26,15 @@ export async function GET() {
   const broadStart=`${year-1}-12-31T21:00:00.000Z`;
   const broadEnd=`${year+1}-01-02T02:00:00.000Z`;
   const [{data:trackingReports,error:trackingReportError},{data:completedTasks,error:taskTrackingError}] = await Promise.all([
-    db.from('eso_reports').select('id,reporter_id,reported_at,completed_at,status').gte('reported_at',broadStart).lt('reported_at',broadEnd),
-    db.from('maintenance_tasks').select('eso_report_id,assigned_to,completed_by,completed_at,status').eq('status','completed')
+    db.from('eso_reports').select('id,reporter_id,reported_at,completed_at,status').eq('company_id',me.company_id).gte('reported_at',broadStart).lt('reported_at',broadEnd),
+    db.from('maintenance_tasks').select('eso_report_id,assigned_to,completed_by,completed_at,status').eq('company_id',me.company_id).eq('status','completed')
   ]);
   if(trackingReportError) return NextResponse.json({error:trackingReportError.message},{status:400});
   if(taskTrackingError) return NextResponse.json({error:taskTrackingError.message},{status:400});
 
   let q:any = db.from('eso_reports')
     .select('*,locations(name),eso_attachments(id,storage_path,file_name,mime_type,attachment_type,created_at),maintenance_tasks(assigned_to,status,completed_by,completed_at,completion_note),corrective_actions(action_text,created_at)')
-    .order('reported_at',{ascending:false});
+    .eq('company_id',me.company_id).order('reported_at',{ascending:false});
 
   if (me.role === 'employee') q = q.eq('reporter_id',me.id);
 
@@ -125,7 +125,7 @@ export async function GET() {
   const current=users.find((u:any)=>u.id===me.id);
   const privilegedUsers=canAdmin(me.role)||canMaintain(me.role)||canViewAll(me.role);
   return NextResponse.json({
-    currentUser:current,
+    currentUser:{...current,companyId:me.company_id,companyName:me.companies?.name||'',companyCode:me.companies?.code||''},
     users:privilegedUsers?users:[current],
     reports:mapped,
     topEmployeeYtd:globalTop,
