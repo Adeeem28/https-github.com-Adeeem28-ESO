@@ -1,28 +1,57 @@
-# ESO Management System — v5.5.1
+# ESO Management System — v5.6.1
 
-Patch release based on v5.5.
+Multi-plant architecture release based on v5.6.
 
-Changes:
-- Mobile quick navigation automatically hides while the left hamburger/sidebar menu is open, so Log out, Notifications, and Change password remain accessible.
-- ESO Details photos are displayed side-by-side on mobile: Reported Photo and Completion / After Photo.
-- Mobile attachment cards use equal widths, contained image sizing, and compact full-image buttons.
+## Architecture
 
-## V5.6 — Multi-company architecture
+The application now uses the hierarchy:
 
-V5.6 introduces tenant/company isolation. **Before deploying this release**, run `supabase/v5_6_multi_company_migration.sql` once in the Supabase SQL Editor.
+**Company → Plant → Department → Employee → ESO → Corrective Action**
 
-The migration:
-- creates `companies`;
-- preserves all existing data under `Default Company` (`DEFAULT`);
-- adds `company_id` ownership to all business tables;
-- changes Employee ID and Department Name uniqueness to per-company uniqueness;
-- adds tenant-aware login (`verify_eso_login_tenant`);
-- adds indexes and an integrity-review view.
+The current company can contain multiple plants while keeping operational data separated by plant.
 
-The application API now scopes company data by the authenticated user's `company_id`, including users, departments, locations, ESO reports, tasks, notifications, analytics and exports. New records inherit the current user's company automatically. Storage object paths are also company-prefixed for new report/completion images.
+### Access model
+- Employee, Maintenance, Supervisor, Admin and Management are scoped to their assigned plant.
+- Super Admin is company-wide and can see all plants, create/manage plants, and view corporate plant metrics.
+- Plant-scoped users cannot assign tasks to or browse employees, departments, locations or ESO records from another plant.
 
-### Login behavior
-A Company Code field is now available. It can remain blank while an Employee ID is globally unique. Once two companies use the same Employee ID, Company Code is required to disambiguate the login. This allows the first/current company to migrate without forcing every employee to change their login flow immediately.
+### Current data migration
+All existing data is preserved and assigned to the initial plant:
 
-### Creating another company
-V5.6 establishes the secure data architecture but intentionally does not yet expose a platform-owner tenant provisioning screen inside a customer's Admin UI. New tenant provisioning should be a platform-level operation, separate from company Admin/Super Admin permissions. This separation is important for SaaS security.
+- Plant: **Cazin**
+- Plant code: **CAZIN**
+
+For the connected production Supabase project this migration has already been applied. Do not run it again there. The SQL file is included for source control and fresh installations.
+
+## New in v5.6.1
+- `plants` table and plant ownership across operational tables.
+- Plant-aware login with optional Plant Code.
+- Super Admin **Plants** administration page.
+- Super Admin can create, edit, activate and deactivate plants.
+- Super Admin can select a plant when creating/editing employees, departments and locations.
+- Admin is restricted to their own plant.
+- ESO reporting, corrective actions, notifications, dashboards, monthly analytics and exports are plant-scoped for non-Super Admin roles.
+- Super Admin receives a **Corporate Plant Overview** with plant-level metrics.
+- Employee import template supports Plant Code.
+- Data exports include Plant / Plant Code and an XLSX Plant Summary sheet.
+- Maintenance/Supervisor assignment is restricted to the ESO's plant.
+
+## Login
+Company and Plant Code can remain blank while an Employee ID uniquely identifies one active user. If Employee IDs overlap, use the codes to disambiguate the account.
+
+Current initial values are:
+- Company Code: `DEFAULT`
+- Plant Code: `CAZIN`
+
+## Adding another plant
+A company Super Admin can open **Plants**, create e.g. `Madrid / MADRID`, and then create/import Madrid employees, departments and locations under that plant. Cazin users remain isolated from Madrid data, while Super Admin can view both.
+
+## Supabase migration
+Fresh installations should run:
+
+`supabase/v5_6_1_multi_plant_migration.sql`
+
+The migration is additive/backfilling and preserves existing data by assigning it to the first plant.
+
+## Deploy
+Upload/commit the project to GitHub `main` and allow Vercel to deploy. For the current connected ESO Supabase project, the required v5.6 and v5.6.1 database migrations have already been applied.
