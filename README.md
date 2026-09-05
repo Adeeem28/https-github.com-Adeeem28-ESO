@@ -68,3 +68,13 @@ Upload/commit the project to GitHub `main` and allow Vercel to deploy. For the c
 
 ## V5.7.2 Platform Owner credentials
 Platform Owner is intentionally separate from employee/Supabase credentials. Configure these server-only environment variables in Vercel: `PLATFORM_OWNER_ID`, `PLATFORM_OWNER_PASSWORD`, and optionally `PLATFORM_OWNER_NAME`. The `/owner` console authenticates only against these server secrets.
+
+## V5.8 — Due Dates & Overdue Corrective Actions
+- Admin/Super Admin must set a due date when assigning or reassigning a corrective action.
+- Open tasks become Overdue dynamically when the due timestamp passes; completion clears them from overdue metrics automatically.
+- Dashboard includes an Overdue KPI with drill-down.
+- Corrective Actions includes All / Overdue / Assigned / In Progress filters and overdue-day badges.
+- ESO Details shows Due Date and overdue age.
+- Corporate Plant Overview includes overdue counts per plant.
+- Excel/CSV/JSON export includes Due At and Overdue fields.
+- Supabase performance index is in `supabase/v5_8_due_date_overdue.sql`; it has already been applied to the current ESO Supabase project.
