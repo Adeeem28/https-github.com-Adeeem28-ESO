@@ -55,3 +55,12 @@ The migration is additive/backfilling and preserves existing data by assigning i
 
 ## Deploy
 Upload/commit the project to GitHub `main` and allow Vercel to deploy. For the current connected ESO Supabase project, the required v5.6 and v5.6.1 database migrations have already been applied.
+
+## V5.7 Platform Owner / Multi-Corporation SaaS
+- New Platform Owner Console: `/owner`
+- First platform owner is bootstrapped from Employee ID `10375305` and uses the same existing password.
+- Platform Owner can create a new corporation, Company Code, first Plant and first Company Super Admin in one onboarding workflow.
+- Company-specific login URLs use `/c/COMPANYCODE` so Employee IDs may safely overlap between different corporations while the employee login screen stays simple.
+- Company Super Admin remains cross-plant only inside their own corporation; Plant Admin and other roles remain plant-scoped.
+- Platform Owner can edit plan/subscription state and activate/deactivate corporations.
+- Supabase migrations required for V5.7 are included in `supabase/v5_7_platform_owner_migration.sql` and have already been applied to the current ESO Supabase project used during development.

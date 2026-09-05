@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {db,setPlatformSession} from '@/lib/server';
+export async function POST(req:Request){const b=await req.json();const{data,error}=await db.rpc('verify_platform_owner_login',{p_username:String(b.username||'').trim(),p_password:String(b.password||'')});const owner=data?.[0];if(error||!owner)return NextResponse.json({error:'Invalid Platform Owner credentials.'},{status:401});await setPlatformSession(owner.id);return NextResponse.json({owner:{id:owner.id,username:owner.username,name:owner.display_name}})}
