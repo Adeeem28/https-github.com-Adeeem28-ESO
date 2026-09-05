@@ -64,3 +64,7 @@ Upload/commit the project to GitHub `main` and allow Vercel to deploy. For the c
 - Company Super Admin remains cross-plant only inside their own corporation; Plant Admin and other roles remain plant-scoped.
 - Platform Owner can edit plan/subscription state and activate/deactivate corporations.
 - Supabase migrations required for V5.7 are included in `supabase/v5_7_platform_owner_migration.sql` and have already been applied to the current ESO Supabase project used during development.
+
+
+## V5.7.1 Platform Owner credentials
+Platform Owner is intentionally separate from employee/Supabase credentials. Configure these server-only environment variables in Vercel: `PLATFORM_OWNER_ID`, `PLATFORM_OWNER_PASSWORD`, and optionally `PLATFORM_OWNER_NAME`. The `/owner` console authenticates only against these server secrets.
