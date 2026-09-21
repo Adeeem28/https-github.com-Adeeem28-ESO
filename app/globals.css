@@ -363,3 +363,7 @@
 .small-modal label>small{font-weight:500;color:var(--muted);line-height:1.35}
 @media(max-width:1100px){.stat-grid-primary.stat-grid-five{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.stat-grid-primary.stat-grid-five{grid-template-columns:repeat(2,minmax(0,1fr))}.task-summary{grid-template-columns:repeat(3,1fr)}.task-summary span{font-size:8px}.task-summary strong{font-size:19px}.task-filters{gap:5px}.task-filters button{padding:6px 9px;font-size:9px}.due-line{font-size:9px;padding:6px}.overdue-pill{font-size:8px;padding:4px 7px}}
+
+/* V5.9 multilingual language selector */
+.language-control{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:inherit}.language-control select{min-width:145px;border:1px solid #d9e0e7;border-radius:8px;padding:7px 9px;background:#fff;color:#1f2937;font:inherit}.sidebar-bottom .language-control{padding:8px 10px;margin-bottom:4px;justify-content:space-between}.sidebar-bottom .language-control span{font-size:12px}.sidebar-bottom .language-control select{min-width:118px;max-width:145px;padding:6px}.login-language{position:absolute;top:18px;right:22px;z-index:5}.login-language .language-control{background:#fff;padding:7px 10px;border-radius:10px;box-shadow:0 3px 16px rgba(0,0,0,.08)}
+@media(max-width:650px){.login-language{top:10px;right:10px}.login-language .language-control span{display:none}.language-control select{min-width:132px}.sidebar-bottom .language-control span{display:block}}

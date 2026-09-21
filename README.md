@@ -1,3 +1,7 @@
+## V5.9 Multilingual
+
+Automatic device/browser language detection with manual override for English, Bosnian, German and Spanish. Manual selection is stored locally and takes precedence over device language. Unsupported device languages fall back to English. User-entered ESO content is preserved as entered.
+
 # ESO Management System — v5.6.1
 
 Multi-plant architecture release based on v5.6.
