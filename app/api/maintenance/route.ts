@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, sessionUser, canMaintain, canAdmin, notify, notifyRoles, isSuperAdmin } from '@/lib/server';
 
 async function getReport(me:any, reportId:string){
-  let q:any=db.from('eso_reports').select('id,status,report_no,plant_id').eq('company_id',me.company_id).eq('id',reportId);
+  let q:any=db.from('eso_reports').select('id,status,report_no,plant_id,reporter_id').eq('company_id',me.company_id).eq('id',reportId);
   if(!isSuperAdmin(me.role)) q=q.eq('plant_id',me.plant_id);
   return (await q.single()).data as any;
 }
@@ -39,7 +39,7 @@ export async function POST(req:Request){
       await db.from('eso_attachments').insert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,storage_path:path,file_name:file.name,mime_type:file.type,uploaded_by:me.id,attachment_type:'completion'});
     }
     await history(me.company_id,r.plant_id,reportId,t?.status||null,'completed',me.id,correctiveAction);
-    await notifyRoles(me.company_id,r.plant_id,['admin','super_admin','management'],'task_completed','ESO task completed','A maintenance/supervisor task was completed.',reportId);
+    await notifyRoles(me.company_id,r.plant_id,['admin','super_admin','management'],'task_completed','ESO task completed',`${r.report_no||'ESO'} corrective action was completed.`,reportId);if(r.reporter_id&&r.reporter_id!==me.id)await notify(r.reporter_id,'eso_completed','Your ESO has been completed',`${r.report_no||'ESO'} corrective action is complete. Open it to review the result.`,reportId,t?.id);
     return NextResponse.json({ok:true});
   }
 
