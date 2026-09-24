@@ -408,3 +408,14 @@
  .dept-summary{grid-template-columns:repeat(2,1fr);gap:7px}.dept-summary>div{padding:9px}.dept-summary strong{font-size:21px}
  .dept-drill-filters{display:grid;grid-template-columns:1fr auto}.dept-drill-filters .search{min-width:0}.dept-drill-filters select{max-width:125px}
 }
+
+/* V6.0 Phase 1 — ESO Star */
+.eso-star-inline,.eso-star-title{color:#d79b00;vertical-align:-2px;margin-right:6px}
+.starred-row{background:#fffdf5}
+.star-filter{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;padding:9px 12px;border-radius:7px;font-weight:800;cursor:pointer;white-space:nowrap}
+.star-filter.active{border-color:#d79b00;background:#fff8dc;color:#9a6b00}
+.eso-star-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px;border:1px solid #efd27a;background:#fff8dc;border-radius:10px;color:#8a6200}
+.eso-star-banner div{display:flex;flex-direction:column;gap:2px}.eso-star-banner span{font-size:12px;color:#6f5c25}
+.star-actions{display:flex;justify-content:flex-end;margin-bottom:12px}.award-star-btn,.remove-star-btn{display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:8px;font-weight:900;cursor:pointer}
+.award-star-btn{border:1px solid #d79b00;background:#fff8dc;color:#8a6200}.remove-star-btn{border:1px solid var(--border);background:#fff;color:var(--muted)}
+@media(max-width:650px){.star-filter{width:100%;justify-content:center}.star-actions>*{width:100%;justify-content:center}}
