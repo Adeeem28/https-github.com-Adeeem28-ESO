@@ -29,14 +29,24 @@ export async function POST(req:Request){
     const {data:t}=await db.from('maintenance_tasks').select('id,assigned_to,status').eq('company_id',me.company_id).eq('plant_id',r.plant_id).eq('eso_report_id',reportId).maybeSingle();
     if(!canAdmin(me.role)&&t?.assigned_to!==me.id) return NextResponse.json({error:'This task is assigned to another user'},{status:403});
     const now=new Date().toISOString();
-    await db.from('maintenance_tasks').upsert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,assigned_to:t?.assigned_to||me.id,status:'completed',completed_at:now,completed_by:me.id,completion_note:correctiveAction},{onConflict:'eso_report_id'});
-    await db.from('corrective_actions').insert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,maintenance_task_id:t?.id||null,action_text:correctiveAction,created_by:me.id});
-    await db.from('eso_reports').update({status:'completed',completed_at:now}).eq('id',reportId);
     const file=form.get('file');
+    let uploaded:{path:string,fileName:string,mimeType:string}|null=null;
     if(file instanceof File&&file.size){
-      const ext=file.name.split('.').pop()||'jpg',path=`${me.company_id}/${r.plant_id}/completion/${new Date().getFullYear()}/${reportId}/${crypto.randomUUID()}.${ext}`,buf=Buffer.from(await file.arrayBuffer()),up=await db.storage.from('eso-attachments').upload(path,buf,{contentType:file.type||'image/jpeg'});
-      if(up.error) return NextResponse.json({error:up.error.message},{status:400});
-      await db.from('eso_attachments').insert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,storage_path:path,file_name:file.name,mime_type:file.type,uploaded_by:me.id,attachment_type:'completion'});
+      if(!String(file.type||'').startsWith('image/')) return NextResponse.json({error:'Completion attachment must be an image.'},{status:400});
+      if(file.size>4_200_000) return NextResponse.json({error:'Photo is too large. Please choose a smaller photo (max 4 MB).'},{status:413});
+      const safeExt=(file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg'),path=`${me.company_id}/${r.plant_id}/completion/${new Date().getFullYear()}/${reportId}/${crypto.randomUUID()}.${safeExt}`,buf=Buffer.from(await file.arrayBuffer()),up=await db.storage.from('eso-attachments').upload(path,buf,{contentType:file.type||'image/jpeg',upsert:false});
+      if(up.error) return NextResponse.json({error:`Photo upload failed: ${up.error.message}`},{status:400});
+      uploaded={path,fileName:file.name,mimeType:file.type||'image/jpeg'};
+    }
+    const {error:taskError}=await db.from('maintenance_tasks').upsert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,assigned_to:t?.assigned_to||me.id,status:'completed',completed_at:now,completed_by:me.id,completion_note:correctiveAction},{onConflict:'eso_report_id'});
+    if(taskError){if(uploaded)await db.storage.from('eso-attachments').remove([uploaded.path]);return NextResponse.json({error:taskError.message},{status:400})}
+    const {error:actionError}=await db.from('corrective_actions').insert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,maintenance_task_id:t?.id||null,action_text:correctiveAction,created_by:me.id});
+    if(actionError)return NextResponse.json({error:actionError.message},{status:400});
+    const {error:reportUpdateError}=await db.from('eso_reports').update({status:'completed',completed_at:now}).eq('id',reportId);
+    if(reportUpdateError)return NextResponse.json({error:reportUpdateError.message},{status:400});
+    if(uploaded){
+      const {error:attachmentError}=await db.from('eso_attachments').insert({company_id:me.company_id,plant_id:r.plant_id,eso_report_id:reportId,storage_path:uploaded.path,file_name:uploaded.fileName,mime_type:uploaded.mimeType,uploaded_by:me.id,attachment_type:'completion'});
+      if(attachmentError)return NextResponse.json({error:attachmentError.message},{status:400});
     }
     await history(me.company_id,r.plant_id,reportId,t?.status||null,'completed',me.id,correctiveAction);
     await notifyRoles(me.company_id,r.plant_id,['admin','super_admin','management'],'task_completed','ESO task completed',`${r.report_no||'ESO'} corrective action was completed.`,reportId);if(r.reporter_id&&r.reporter_id!==me.id)await notify(r.reporter_id,'eso_completed','Your ESO has been completed',`${r.report_no||'ESO'} corrective action is complete. Open it to review the result.`,reportId,t?.id);
