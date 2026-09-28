@@ -460,6 +460,10 @@ html[data-theme="dark"] .critical-highlight .critical-icon{background:#3b252b;co
 html[data-theme="dark"] .month-cell.current{background:#253654;box-shadow:inset 0 0 0 1px #6d9cff}html[data-theme="dark"] .resolver-row{box-shadow:none}
 html[data-theme="dark"] .starred-row{background:#3a321f!important;color:#fff4c7}html[data-theme="dark"] .starred-row td{border-color:#5c5133}html[data-theme="dark"] .starred-row td small{color:#d7cda8}
 html[data-theme="dark"] .reports-table tr:hover{background:#243650}html[data-theme="dark"] .resolver-person span,html[data-theme="dark"] .resolver-metric span{color:#aab9cc}
+html[data-theme="dark"] .stat-card.blue{border-top-color:#4f83ff!important}html[data-theme="dark"] .stat-card.orange{border-top-color:#ff984d!important}html[data-theme="dark"] .stat-card.purple{border-top-color:#a98cff!important}html[data-theme="dark"] .stat-card.green{border-top-color:#55c889!important}html[data-theme="dark"] .stat-card.red{border-top-color:#ff7777!important}
+html[data-theme="dark"] .critical-highlight{border-top-color:#ff7777!important}html[data-theme="dark"] .top-employee-card{border-top-color:#ff984d!important}
+html[data-theme="dark"] .stat-card,html[data-theme="dark"] .critical-highlight,html[data-theme="dark"] .top-employee-card,html[data-theme="dark"] .dept-card{border-color:#385071}html[data-theme="dark"] .stat-card.blue,html[data-theme="dark"] .stat-card.orange,html[data-theme="dark"] .stat-card.purple,html[data-theme="dark"] .stat-card.green,html[data-theme="dark"] .stat-card.red,html[data-theme="dark"] .critical-highlight,html[data-theme="dark"] .top-employee-card{border-top-width:5px}
+html[data-theme="dark"] .progress,html[data-theme="dark"] .mini-progress,html[data-theme="dark"] .month-bar{background:#2b3b52}
 .photo-removed { opacity:.45; }
 .eso-audit { margin-top:24px; border-top:1px solid #dce3ec; padding-top:16px; }
 .eso-audit article { padding:12px 0; border-bottom:1px solid #e6ebf1; }
