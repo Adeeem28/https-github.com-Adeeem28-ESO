@@ -31,7 +31,13 @@ async function legacyMutation(me:any,id:string,action:string,payload:any,photos:
   const up=await db.from('eso_reports').update({status:'completed',completed_at:action==='complete'?now:r?.completed_at}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId);if(up.error)throw new Error(up.error.message);
   const ca=await db.from('corrective_actions').insert({company_id:me.company_id,plant_id:plantId,eso_report_id:id,maintenance_task_id:task.id,action_text:note,created_by:me.id});if(ca.error)throw new Error(ca.error.message);r={id,report_no:r?.report_no};
  } else throw new Error('V6.2.1 migration is required for this action.');
- if(photos.length){const {error}=await db.from('eso_attachments').insert(photos.map((p:any)=>({...p,company_id:me.company_id,plant_id:plantId,eso_report_id:id,uploaded_by:me.id,attachment_type:'report'})));if(error)throw new Error(error.message);}
+ if(photos.length){
+  // Legacy V6.1.5 has no RPC to classify uploads. Completion uploads must
+  // still be stored as After photos so the detail view can separate them.
+  const attachmentType=action==='complete'||action==='edit_completion'?'completion':'report';
+  const {error}=await db.from('eso_attachments').insert(photos.map((p:any)=>({...p,company_id:me.company_id,plant_id:plantId,eso_report_id:id,uploaded_by:me.id,attachment_type:attachmentType})));
+  if(error)throw new Error(error.message);
+ }
  return r;
 }
 

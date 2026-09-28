@@ -34,6 +34,16 @@ export async function GET(req:NextRequest) {
   if(signed?.error)throw new Error(signed.error.message);
   const urls=new Map((signed?.data||[]).map(p=>[p.path,p.signedUrl]));
   const completed=['completed','closed'].includes(r.status),unassigned=!t?.assigned_to,available=unassigned||t?.assigned_to===me.id||isAdmin(me.role);
-  return NextResponse.json({report:r,task:t||null,additionalLocations:extra.data||[],photos:(photos.data||[]).map((p:any)=>({id:p.id,name:p.file_name,type:p.attachment_type,url:urls.get(p.storage_path)})),audit:audit.data||[],nextBefore:audit.data?.length===30?String(audit.data[29].id):null,legacyHistory:history.data||[],permissions:{edit:canEditReport(me,r),editCompletion:completed&&canEditCompletion(me,r,t),take:!completed&&canResolve(me.role)&&unassigned,start:!completed&&canResolve(me.role)&&t?.assigned_to===me.id&&t?.status==='assigned',complete:!completed&&canResolve(me.role)&&available}},{headers:{'Cache-Control':'private, no-store'}});
+  const completedAt=t?.completed_at||r.completed_at;
+  const completionTime=completedAt?new Date(completedAt).getTime():NaN;
+  const mappedPhotos=(photos.data||[]).map((p:any)=>{
+   // Some V6.1.5 records were saved with every upload labelled `report`.
+   // Once the report was completed, uploads created at/after completion are
+   // the After photos and should be displayed in that group.
+   const createdTime=new Date(p.created_at).getTime();
+   const type=p.attachment_type==='completion'||(p.attachment_type==='report'&&Number.isFinite(completionTime)&&createdTime>=completionTime)?'completion':p.attachment_type;
+   return {id:p.id,name:p.file_name,type,url:urls.get(p.storage_path)};
+  });
+  return NextResponse.json({report:r,task:t||null,additionalLocations:extra.data||[],photos:mappedPhotos,audit:audit.data||[],nextBefore:audit.data?.length===30?String(audit.data[29].id):null,legacyHistory:history.data||[],permissions:{edit:canEditReport(me,r),editCompletion:completed&&canEditCompletion(me,r,t),take:!completed&&canResolve(me.role)&&unassigned,start:!completed&&canResolve(me.role)&&t?.assigned_to===me.id&&t?.status==='assigned',complete:!completed&&canResolve(me.role)&&available}},{headers:{'Cache-Control':'private, no-store'}});
  } catch(e:any){return NextResponse.json({error:e.message||'Could not load ESO detail'},{status:400});}
 }
