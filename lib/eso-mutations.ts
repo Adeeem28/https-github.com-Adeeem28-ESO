@@ -18,10 +18,23 @@ async function legacyMutation(me:any,id:string,action:string,payload:any,photos:
   const {data,error}=await db.from('eso_reports').update({location_id:payload.location_id,description:payload.description,category:payload.category,urgency:payload.urgency}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId).select('id,report_no').single();
   if(error)throw new Error(error.message);r=data;
   if(removed.length){const del=await db.from('eso_attachments').delete().in('id',removed).eq('eso_report_id',id);if(del.error)throw new Error(del.error.message);}
+ } else if(action==='take'||action==='start'){
+  const {error}=await db.from('maintenance_tasks').upsert({company_id:me.company_id,plant_id:plantId,eso_report_id:id,assigned_to:me.id,assigned_by:me.id,status:'in_progress',assigned_at:new Date().toISOString(),started_at:new Date().toISOString()},{onConflict:'eso_report_id'});
+  if(error)throw new Error(error.message);
+  const up=await db.from('eso_reports').update({status:'in_progress'}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId);if(up.error)throw new Error(up.error.message);r={id,report_no:r?.report_no};
+ } else if(action==='assign'){
+  const due=bodyDue(payload);const {error}=await db.from('maintenance_tasks').upsert({company_id:me.company_id,plant_id:plantId,eso_report_id:id,assigned_to:payload.assignedTo,assigned_by:me.id,status:'assigned',assigned_at:new Date().toISOString(),due_at:due},{onConflict:'eso_report_id'});if(error)throw new Error(error.message);const up=await db.from('eso_reports').update({status:'assigned'}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId);if(up.error)throw new Error(up.error.message);r={id,report_no:r?.report_no};
+ } else if(action==='complete'||action==='edit_completion'){
+  const now=new Date().toISOString();const note=String(payload.correctiveAction||'').trim();if(!note)throw new Error('Corrective action is required.');
+  const {data:task,error}=await db.from('maintenance_tasks').upsert({company_id:me.company_id,plant_id:plantId,eso_report_id:id,assigned_to:r?.assigned_to||me.id,assigned_by:r?.assigned_by||me.id,status:'completed',assigned_at:r?.assigned_at||now,started_at:r?.started_at||now,completed_at:action==='complete'?now:r?.completed_at,completed_by:action==='complete'?me.id:r?.completed_by,completion_note:note},{onConflict:'eso_report_id'}).select('id').single();if(error)throw new Error(error.message);
+  const up=await db.from('eso_reports').update({status:'completed',completed_at:action==='complete'?now:r?.completed_at}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId);if(up.error)throw new Error(up.error.message);
+  const ca=await db.from('corrective_actions').insert({company_id:me.company_id,plant_id:plantId,eso_report_id:id,maintenance_task_id:task.id,action_text:note,created_by:me.id});if(ca.error)throw new Error(ca.error.message);r={id,report_no:r?.report_no};
  } else throw new Error('V6.2.1 migration is required for this action.');
  if(photos.length){const {error}=await db.from('eso_attachments').insert(photos.map((p:any)=>({...p,company_id:me.company_id,plant_id:plantId,eso_report_id:id,uploaded_by:me.id,attachment_type:'report'})));if(error)throw new Error(error.message);}
  return r;
 }
+
+function bodyDue(payload:any){const d=new Date(String(payload.dueAt||''));if(Number.isNaN(d.getTime())||d.getTime()<=Date.now())throw new Error('Choose a future due date.');return d.toISOString();}
 
 // Storage objects stay private; only a successful transaction links them to a report.
 export async function mutateReport(req:Request, fallback:string) {
