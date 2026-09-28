@@ -1,3 +1,9 @@
+# ESO V6.2.1
+
+Za ovu nadogradnju prvo pročitajte [RELEASE_NOTES_V6.2.1.md](RELEASE_NOTES_V6.2.1.md). Nova SQL migracija mora se izvršiti prije deploya. Stare SQL fajlove ispod ne ponavljati na postojećoj bazi.
+
+---
+
 ## V5.9 Multilingual
 
 Automatic device/browser language detection with manual override for English, Bosnian, German and Spanish. Manual selection is stored locally and takes precedence over device language. Unsupported device languages fall back to English. User-entered ESO content is preserved as entered.

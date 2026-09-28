@@ -1,0 +1,38 @@
+{
+  "release": "6.2.1",
+  "base_archive": "ESO_StackBlitz_Release_v6.1.5_ESO_CATEGORY_FIX.zip",
+  "base_sha256": "244a85700247bc831a9ce0646dbb505c7c7e5f336f43c91f055c22414247965b",
+  "production_database_modified": false,
+  "added": [
+    "RELEASE_NOTES_V6.2.1.md",
+    "app/api/reports/detail/route.ts",
+    "components/eso-workflow.tsx",
+    "lib/eso-mutations.ts",
+    "lib/eso-policy.ts",
+    "package-lock.json",
+    "supabase/migrations/20260928183757_eso_v621_editing_photos_locations.sql",
+    "tests/ui-smoke.cjs",
+    "tests/workflow.test.ts",
+    "RELEASE_MANIFEST.json"
+  ],
+  "changed": [
+    "README.md",
+    "app/api/data/route.ts",
+    "app/api/maintenance/route.ts",
+    "app/api/reports/images/route.ts",
+    "app/api/reports/route.ts",
+    "app/globals.css",
+    "components/eso-app.tsx",
+    "lib/server.ts",
+    "package.json",
+    "public/sw.js",
+    "types/index.ts"
+  ],
+  "excluded": [
+    "node_modules",
+    ".next",
+    "private .env files",
+    "test-results",
+    "*.tsbuildinfo"
+  ]
+}

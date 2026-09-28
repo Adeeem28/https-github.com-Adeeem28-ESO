@@ -426,3 +426,21 @@
 .reclassify-overlay{z-index:260}
 .reclassify-modal{width:min(560px,95vw)}
 .reclassify-modal-head{display:flex;align-items:flex-start;gap:12px}.reclassify-modal-head>div{flex:1}.reclassify-modal-head h3{margin:0 0 5px}.reclassify-modal-head p{margin:0}.reclassify-modal textarea{resize:vertical;min-height:105px}.reclassify-modal .form-actions{margin-top:2px}
+/* V6.2.1: additive workflow styles; preserve existing modal stacking. */
+.eso-edit-form fieldset { border:0; padding:0; margin:0; min-width:0; }
+.eso-edit-form .additional-locations { border:1px solid #dce3ec; border-radius:8px; padding:12px; margin:12px 0; max-height:180px; overflow:auto; }
+.additional-locations .check-row { display:flex; align-items:center; gap:8px; margin:7px 0; }
+.additional-locations input { width:auto; }
+.workflow-actions { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.eso-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin:12px 0; }
+.eso-photo-grid img { width:100%; height:150px; object-fit:contain; background:#f4f6f9; border-radius:8px; }
+.eso-photo-grid small { display:block; overflow-wrap:anywhere; margin:5px 0; }
+.photo-removed { opacity:.45; }
+.eso-audit { margin-top:24px; border-top:1px solid #dce3ec; padding-top:16px; }
+.eso-audit article { padding:12px 0; border-bottom:1px solid #e6ebf1; }
+.eso-audit article>small { display:block; margin:4px 0; color:#64748b; }
+.audit-change { margin:10px 0; font-size:13px; overflow-wrap:anywhere; }
+.audit-change del { color:#8b4550; }
+.eso-audit summary { cursor:pointer; padding:8px 0; }
+.photo-processing-guard { width:1px!important; height:1px!important; opacity:0; padding:0!important; border:0!important; }
+.eso-edit-form { margin:12px 0; }

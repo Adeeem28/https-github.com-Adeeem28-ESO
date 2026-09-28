@@ -12,7 +12,7 @@ export async function sessionUser(){const raw=(await cookies()).get('eso_session
 export function roleName(role:string){return role==='super_admin'?'Super Admin':role==='admin'?'Admin':role==='management'?'Management':role==='supervisor'?'Supervisor':role==='maintenance'?'Maintenance':'Employee'}
 export function canAdmin(role:string){return role==='admin'||role==='super_admin'}
 export function isSuperAdmin(role:string){return role==='super_admin'}
-export function canMaintain(role:string){return role==='maintenance'||role==='supervisor'||canAdmin(role)}
+export function canMaintain(role:string){return role==='maintenance'||role==='supervisor'||role==='management'||canAdmin(role)}
 export function canViewAll(role:string){return role==='management'||canAdmin(role)}
 export function canManageLocations(role:string){return canAdmin(role)}
 export function scopePlant(q:any,me:any,field='plant_id'){return isSuperAdmin(me.role)?q:q.eq(field,me.plant_id)}

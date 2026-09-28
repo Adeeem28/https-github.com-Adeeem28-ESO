@@ -1,28 +1,31 @@
 {
   "name": "eso-management-system",
-  "version": "1.3.0",
+  "version": "6.2.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "test": "node --import tsx --test tests/workflow.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
-    "lucide-react": "^0.468.0",
-    "next": "15.5.9",
+    "@supabase/supabase-js": "2.117.2",
+    "lucide-react": "0.468.0",
+    "next": "15.5.26",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "xlsx": "^0.18.5",
-    "web-push": "3.6.7"
+    "web-push": "3.6.7",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
-    "typescript": "^5.7.2",
-    "@types/web-push": "3.6.4"
+    "@types/web-push": "3.6.4",
+    "tsx": "4.23.15",
+    "typescript": "^5.7.2"
   },
   "stackblitz": {
     "startCommand": "npm run dev"
