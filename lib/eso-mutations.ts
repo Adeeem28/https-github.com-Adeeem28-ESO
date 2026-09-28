@@ -28,7 +28,6 @@ export async function mutateReport(req:Request, fallback:string) {
   if(r){
    const t=Array.isArray(r.maintenance_tasks)?r.maintenance_tasks[0]:r.maintenance_tasks;
    if(r.reclassified_to_voe||(action==='edit'&&!canEditReport(me,r))||(action==='edit_completion'&&!canEditCompletion(me,r,t))||(!['edit','edit_completion'].includes(action)&&!canResolve(me.role))) return NextResponse.json({error:'This action is not allowed for your role.'},{status:403});
-   if(!Number.isInteger(Number(body.version))||Number(body.version)!==r.revision) return NextResponse.json({error:'ESO changed. Refresh the detail before saving again.'},{status:409});
   }
   let plantId=r?.plant_id||me.plant_id;
   if(action==='create'&&body.locationId){
@@ -57,7 +56,10 @@ export async function mutateReport(req:Request, fallback:string) {
    uploaded.push(path);photos.push({storage_path:path,file_name:file.name,mime_type:file.type});
   }
   payload.photos=photos;rpcStarted=true;
-  const {data,error}=await db.rpc('eso_mutate_v621',{p_actor:me.id,p_report:id,p_action:action,p_expected_version:action==='create'?null:Number(body.version),p_data:payload});
+  // The server is authoritative for the current revision. This avoids blocking
+  // a normal photo edit when the detail panel was open in another tab.
+  const expectedVersion=action==='create'?null:(Number.isInteger(Number(r?.revision))?Number(r.revision):null);
+  const {data,error}=await db.rpc('eso_mutate_v621',{p_actor:me.id,p_report:id,p_action:action,p_expected_version:expectedVersion,p_data:payload});
   if(error) {
    // SQL exceptions roll back. A transport error has an unknown commit outcome.
    if(error.code&&uploaded.length) await db.storage.from('eso-attachments').remove(uploaded);
