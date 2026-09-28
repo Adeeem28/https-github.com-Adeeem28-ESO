@@ -14,6 +14,7 @@ Osnova: originalni `ESO_StackBlitz_Release_v6.1.5_ESO_CATEGORY_FIX.zip`, pronađ
 - **Transakcija:** ESO, zadatak, attachment metapodaci, additional locations i audit snimaju se zajedno. SQL greška vraća sve DB izmjene.
 - **UX i performance:** slike se potpisuju tek pri otvaranju detalja, u jednom batch zahtjevu. Audit se učitava po 30 događaja. Osvježavanje prijave više ne demontira cijelu aplikaciju niti zatvara roditeljski KPI/Department prozor.
 - **Privatni keš:** service worker više ne kešira API odgovore i potpisane Storage URL-ove; stari ESO shell keš se uklanja pri aktivaciji nove verzije.
+- **Login prije migracije:** početno učitavanje dashboarda više ne traži `removed_at`, pa se korisnik može prijaviti i prije izvršenja V6.2.1 migracije. Edit/audit detalj se koristi nakon migracije.
 - Next.js ažuriran sa 15.5.9 na sigurnosni patch 15.5.26. Verzije produkcijskih zavisnosti su zaključane i uključen je `package-lock.json`.
 
 ## Prava pristupa
