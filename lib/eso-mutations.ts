@@ -10,6 +10,19 @@ export async function scopedReport(me:any, id:string) {
  return data&&canReadReport(me,data)?data:null;
 }
 
+async function legacyMutation(me:any,id:string,action:string,payload:any,photos:any[],removed:any[],r:any,plantId:string){
+ if(action==='create'){
+  const {data,error}=await db.from('eso_reports').insert({id,company_id:me.company_id,plant_id:plantId,reporter_id:me.id,location_id:payload.location_id,description:payload.description,category:payload.category,urgency:payload.urgency}).select('id,report_no').single();
+  if(error)throw new Error(error.message);r=data;
+ } else if(action==='edit'){
+  const {data,error}=await db.from('eso_reports').update({location_id:payload.location_id,description:payload.description,category:payload.category,urgency:payload.urgency}).eq('id',id).eq('company_id',me.company_id).eq('plant_id',plantId).select('id,report_no').single();
+  if(error)throw new Error(error.message);r=data;
+  if(removed.length){const del=await db.from('eso_attachments').delete().in('id',removed).eq('eso_report_id',id);if(del.error)throw new Error(del.error.message);}
+ } else throw new Error('V6.2.1 migration is required for this action.');
+ if(photos.length){const {error}=await db.from('eso_attachments').insert(photos.map((p:any)=>({...p,company_id:me.company_id,plant_id:plantId,eso_report_id:id,uploaded_by:me.id,attachment_type:'report'})));if(error)throw new Error(error.message);}
+ return r;
+}
+
 // Storage objects stay private; only a successful transaction links them to a report.
 export async function mutateReport(req:Request, fallback:string) {
  const me:any=await sessionUser();
@@ -60,6 +73,10 @@ export async function mutateReport(req:Request, fallback:string) {
   // a normal photo edit when the detail panel was open in another tab.
   const expectedVersion=action==='create'?null:(Number.isInteger(Number(r?.revision))?Number(r.revision):null);
   const {data,error}=await db.rpc('eso_mutate_v621',{p_actor:me.id,p_report:id,p_action:action,p_expected_version:expectedVersion,p_data:payload});
+  if(error && (error.code==='PGRST202'||String(error.message||'').includes('schema cache')||String(error.message||'').includes('does not exist'))) {
+   try { const legacy=await legacyMutation(me,id,action,payload,photos,payload.remove_photos||[],r,plantId); return NextResponse.json({ok:true,report:legacy,legacy:true}); }
+   catch(legacyError:any){if(uploaded.length)await db.storage.from('eso-attachments').remove(uploaded);return NextResponse.json({error:legacyError.message},{status:400});}
+  }
   if(error) {
    // SQL exceptions roll back. A transport error has an unknown commit outcome.
    if(error.code&&uploaded.length) await db.storage.from('eso-attachments').remove(uploaded);
