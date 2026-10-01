@@ -1,19 +1,22 @@
 {
-  "release": "6.2.1",
-  "base_archive": "ESO_StackBlitz_Release_v6.1.5_ESO_CATEGORY_FIX.zip",
-  "base_sha256": "244a85700247bc831a9ce0646dbb505c7c7e5f336f43c91f055c22414247965b",
-  "production_database_modified": false,
+  "release": "6.2.3",
+  "base_archive": "ESO_6.2.2_FIX_LOGIN_VERCEL.zip",
+  "base_sha256": "79af3f4774ff19fbdcd4c3e596a3f3a49030d409ccb7cdc85057f226efedd2fa",
+  "production_database_modified": true,
   "added": [
     "RELEASE_NOTES_V6.2.1.md",
+    "RELEASE_NOTES_V6.2.3.md",
     "app/api/reports/detail/route.ts",
     "components/eso-workflow.tsx",
     "lib/eso-mutations.ts",
     "lib/eso-policy.ts",
     "package-lock.json",
     "supabase/migrations/20260928183757_eso_v621_editing_photos_locations.sql",
+    "supabase/migrations/20261001220000_eso_v623_completion_attribution.sql",
     "tests/ui-smoke.cjs",
     "tests/workflow.test.ts",
-    "RELEASE_MANIFEST.json"
+    "RELEASE_MANIFEST.json",
+    "app/api/reports/completion-resolver/route.ts"
   ],
   "changed": [
     "README.md",
@@ -26,7 +29,13 @@
     "lib/server.ts",
     "package.json",
     "public/sw.js",
-    "types/index.ts"
+    "types/index.ts",
+    "tests/database-security.cjs",
+    "tests/routes-security.cjs",
+    "README.md",
+    "PROVJERE.md",
+    "START_HERE.txt",
+    "package-lock.json"
   ],
   "excluded": [
     "node_modules",

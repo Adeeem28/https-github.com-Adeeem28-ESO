@@ -1,0 +1,23 @@
+# ESO 6.2.3
+
+## Dashboard
+
+- Top ESO Resolver i Employee with Most ESO prikazani su kao dva jednaka 50/50 KPI panela.
+- Klik na resolvera otvara ESO zapise koje je riješio u tekućoj fiskalnoj godini.
+- Completed ESO tabela prikazuje `Completed by: ime`, uključujući `Not recorded` dok admin ne dopuni stare zapise.
+- Dashboard ima ručni REFRESH sa zaštitom od dvostrukog klika.
+
+## Administracija završenih ESO zapisa
+
+- Admin i Super Admin mogu u detaljima završenog ESO-a izabrati aktivnog zaposlenog iz istog pogona kao `Completed by`.
+- Operacija ne otvara ESO ponovo i ne mijenja originalni completion datum/status.
+- Upis je optimistički zaključan verzijom izvještaja i ostavlja audit događaj `set_completion_resolver`.
+- Baza odbija neovlaštene uloge, pogrešan pogon/firma, neaktivne zaposlenike i zastarjelu verziju.
+
+## Provjere
+
+- `npm run typecheck` prošao.
+- `npm test` prošao: 33/33.
+- `npm run test:database` prošao: 31/31, uključujući retroaktivnu atribuciju.
+- `npm run test:routes` prošao: 20 API provjera i 32 zaštićene metode.
+- Produkcijski Next.js build treba ponoviti prije upload-a sa Vercel environment varijablama.

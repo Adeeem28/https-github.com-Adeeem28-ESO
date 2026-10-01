@@ -1,5 +1,3 @@
-ESO 6.2.2 — login/data loading fix
-
+ESO 6.2.3 source package
 Open README.md first.
-This package includes the PostgREST relationship fix needed after the V6.2.2 migrations.
-Upload the extracted folder to Vercel; package.json must be at the root.
+Upload this extracted folder to Vercel or connect it to GitHub.

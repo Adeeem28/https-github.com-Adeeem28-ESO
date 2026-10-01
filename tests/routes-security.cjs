@@ -102,7 +102,7 @@ async function main(){
  await record('31 protected API methods reject requests without a session','control',async()=>{
   const publicPaths=new Set(['api/login','api/platform/login','api/logout','api/platform/logout','api/push/public-key','api/cron/reminders']);let count=0;
   for(const file of walk(path.join(root,'app/api')).filter(x=>x.endsWith('route.ts'))){const rel=path.relative(path.join(root,'app'),path.dirname(file)).replaceAll(path.sep,'/');if(publicPaths.has(rel))continue;const exports=load(path.relative(root,file));me=null;for(const method of ['GET','POST','PATCH','DELETE'])if(exports[method]){const result=await exports[method](req(method));assert.ok([401,403].includes(result.status),file+' '+method);count++;}}
-  assert.equal(count,31);
+  assert.equal(count,32);
  });
  await record('missing migration fails closed and does not write directly','control',async()=>{rpcError={code:'PGRST202',message:'Missing RPC'};const res=await mutate('take');assert.equal(res.status,503);assert.equal(calls.filter(x=>['insert','upsert','update','delete'].includes(x.method)).length,0);});
  await record('resolver cannot steal assigned task or assign to somebody else','control',async()=>{r.maintenance_tasks=[{assigned_to:id(2)}];assert.equal((await mutate('take')).status,403);assert.equal((await mutate('assign',{assignedTo:id(2)})).status,403);assert.equal(calls.filter(x=>x.type==='rpc').length,0);});
@@ -124,7 +124,7 @@ async function main(){
  await record('Owner session is revoked by logout or credential change','control',async()=>{const server=setup();process.env.PLATFORM_OWNER_ID='synthetic-owner';process.env.PLATFORM_OWNER_PASSWORD='SyntheticOwnerPassword';await server.setPlatformSession('env-owner');const token=cookieJar.eso_platform_session;assert.equal((await server.platformOwnerSession()).id,'env-owner');process.env.PLATFORM_OWNER_PASSWORD='ChangedOwnerPassword';assert.equal(await server.platformOwnerSession(),null);process.env.PLATFORM_OWNER_PASSWORD='SyntheticOwnerPassword';await server.clearPlatformSession();cookieJar.eso_platform_session=token;assert.equal(await server.platformOwnerSession(),null);delete process.env.PLATFORM_OWNER_ID;delete process.env.PLATFORM_OWNER_PASSWORD;});
  await record('actual server validates selected company and active plant','control',async()=>{const server=setup();me.role='super_admin';assert.equal(await server.targetPlant(me,id(999)),null);assert.equal(await server.targetPlant(me,id(30)),id(30));assert.ok(calls.filter(x=>x.table==='plants').every(x=>x.ops.some(o=>o[0]==='eq'&&o[1]==='company_id'&&o[2]===me.company_id)));});
  await record('VoE reclassification uses one RPC and returns failures','control',async()=>{me.role='management';rpcError={code:'23514',message:'Invalid data'};assert.equal((await load('app/api/reclassify/route.ts').POST(req('POST',{esoId:r.id,version:4,reason:'Synthetic reason'}))).status,400);assert.equal(calls.filter(x=>x.type==='rpc').length,1);assert.equal(calls.filter(x=>['insert','update'].includes(x.method)).length,0);});
- console.log(`API CHECKS: ${findings.length} passed; ${31} protected methods verified; no production writes.`);
+ console.log(`API CHECKS: ${findings.length} passed; ${32} protected methods verified; no production writes.`);
 }
 function walk(p){return fs.readdirSync(p,{withFileTypes:true}).flatMap(d=>d.isDirectory()?walk(path.join(p,d.name)):[path.join(p,d.name)]);}
 reset();main().catch(e=>{console.error('FAIL:',e.message);process.exitCode=1;});
