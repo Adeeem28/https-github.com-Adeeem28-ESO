@@ -507,3 +507,28 @@ html[data-theme="dark"] .top-resolver-icon{background:#1f3b31;color:#7be0a4}
 html[data-theme="dark"] .top-resolver-card .top-employee-copy span,html[data-theme="dark"] .top-resolver-card .top-employee-score b,html[data-theme="dark"] .top-resolver-card .top-employee-score small{color:#7be0a4}
 html[data-theme="dark"] .completed-by-cell{color:#7be0a4!important}
 html[data-theme="dark"] .completion-resolver-btn{background:#1f3b31;color:#9cebb9;border-color:#438c61}
+
+/* V6.2.3 dashboard alert pairing and overdue attribution */
+.alert-performers-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.overdue-highlight{min-height:148px;border:1px solid var(--border);border-top:5px solid var(--red);background:#fff;box-shadow:0 2px 10px #12263d0a;padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.overdue-highlight>div:first-child{min-width:0}
+.overdue-highlight span{display:block;font-size:12px;font-weight:900;color:var(--red);letter-spacing:.015em}
+.overdue-highlight strong{display:block;font-size:42px;line-height:1;margin-top:10px;color:var(--text)}
+.overdue-icon{width:56px;height:56px;flex:0 0 56px;border-radius:16px;background:#fff0f0;color:var(--red);display:grid;place-items:center}
+.overdue-by-cell{color:#a82c2c!important;font-weight:800}
+html[data-theme="dark"] .overdue-highlight{background:#182335;border-color:#385071;border-top-color:#ff7777!important;color:var(--text);box-shadow:none}
+html[data-theme="dark"] .overdue-highlight strong{color:#edf3fb}
+html[data-theme="dark"] .overdue-highlight .overdue-icon{background:#3b252b;color:#ff8b8b}
+html[data-theme="dark"] .overdue-by-cell{color:#ff9a9a!important}
+@media(min-width:1651px){.alert-performers-row{gap:14px}.overdue-highlight{min-height:158px}}
+@media(min-width:1301px) and (max-width:1650px){.overdue-highlight{min-height:130px;padding:17px 19px}.overdue-highlight strong{font-size:36px}.overdue-icon{width:48px;height:48px;flex-basis:48px;border-radius:13px}}
+@media(min-width:651px) and (max-width:1300px){.overdue-highlight{min-height:130px;padding:16px}.overdue-highlight strong{font-size:36px}.overdue-icon{width:46px;height:46px;flex-basis:46px;border-radius:13px}}
+@media(max-width:650px){
+ .alert-performers-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+ .overdue-highlight{min-height:104px;border-top-width:3px;border-radius:5px;padding:10px 11px;gap:5px}
+ .overdue-highlight span{font-size:8px}
+ .overdue-highlight strong{font-size:28px;margin-top:6px}
+ .overdue-icon{width:34px;height:34px;flex-basis:34px;border-radius:10px}
+ .overdue-icon svg{width:18px;height:18px}
+}
+@media(max-width:380px){.overdue-highlight{padding:9px}.overdue-highlight strong{font-size:25px}.overdue-icon{width:30px;height:30px;flex-basis:30px;border-radius:9px}.overdue-icon svg{width:16px;height:16px}}
