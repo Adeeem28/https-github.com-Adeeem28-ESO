@@ -1,90 +1,48 @@
-# ESO V6.2.1
+# ESO 6.2.2 — paket za Vercel
 
-Za ovu nadogradnju prvo pročitajte [RELEASE_NOTES_V6.2.1.md](RELEASE_NOTES_V6.2.1.md). Nova SQL migracija mora se izvršiti prije deploya. Stare SQL fajlove ispod ne ponavljati na postojećoj bazi.
+Ova verzija nadograđuje dostavljenu 6.2.1 i postojeću ESO bazu. Zadržava prijavu Employee korisnika preko ID-a, teme, jezike i postojeće tokove. Ne pomjera datume prijava i ne briše podatke.
 
----
+## Prije objave
 
-## V5.9 Multilingual
+1. Na postojećoj ESO bazi primijenite samo dvije migracije iz `supabase/migrations`, redom po nazivu: `20260928183757_eso_v621_editing_photos_locations.sql`, zatim `20260929224313_eso_v622_security_sessions_atomic_workflows.sql`. Migracije se izvršavaju jednom. Historijske SQL fajlove ne ponavljajte. Ako je prva već primijenjena, izvršite samo drugu.
+2. Sačuvajte postojeće Vercel varijable. Obavezne su `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` ili `SUPABASE_SERVICE_ROLE_KEY`, te `APP_SESSION_SECRET` s najmanje 32 nasumična bajta. Primjer imena je u `.env.example`; tajne vrijednosti nisu u paketu.
+3. Za Owner panel postavite `PLATFORM_OWNER_ID` i jedinstvenu `PLATFORM_OWNER_PASSWORD` od najmanje 12 znakova. Za dnevne podsjetnike postavite `CRON_SECRET`. Postojeće VAPID ključeve zadržite da push nastavi raditi.
+4. U GitHub/Vercel projektu zamijenite izvorne fajlove sadržajem ovog paketa. Root Directory mora biti folder s `package.json`. Framework: Next.js; Node: 24.x; Install: `npm ci`; Build: `npm run build`.
+5. Objavite i ponovo se prijavite. Stari kolačići se ne prihvataju u ovoj verziji. Provjerite jednu prijavu, uređivanje ESO-a, fotografije i završetak zadatka na svom deploymentu.
 
-Automatic device/browser language detection with manual override for English, Bosnian, German and Spanish. Manual selection is stored locally and takes precedence over device language. Unsupported device languages fall back to English. User-entered ESO content is preserved as entered.
+Nasumični secret možete napraviti lokalno:
 
-# ESO Management System — v5.6.1
+```sh
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
 
-Multi-plant architecture release based on v5.6.
+Upotrijebite različite vrijednosti za APP_SESSION_SECRET i CRON_SECRET. Server ključ, lozinke i tajne varijable nemaju prefiks `NEXT_PUBLIC_`.
 
-## Architecture
+## Šta je popravljeno
 
-The application now uses the hierarchy:
+- Javni pristup tabelama i privilegovanim RPC funkcijama je zatvoren SQL migracijom; RLS ostaje bez javnih politika jer aplikacija koristi provjereni serverski pristup.
+- Sesije su nasumične, spremljene kao hash, ističu nakon 12 sati i opozivaju se pri odjavi, promjeni lozinke, uloge ili aktivnosti firme/pogona.
+- Provjere firme i pogona rade i u aplikaciji i kroz ograničenja baze. Employee ID koji je dvosmislen između firmi odbija se na root prijavi; koristite `/c/COMPANYCODE`.
+- ESO izmjene i dodjele zadataka koriste transakcije i provjeru verzije. Nedostajuća migracija zaustavlja upis; nema nesigurnog rezervnog upisa ni automatskog prepisivanja tuđih izmjena.
+- Uklonjene fotografije ne vraćaju se korisniku; upload provjerava tip, sadržaj i ukupnu veličinu. Dodatne lokacije se čuvaju i mogu uređivati.
+- Prebacivanje u Voice of Employee i dodjela zvjezdice su transakcijski, s historijom. Podsjetnici traže tajnu i ne dupliraju obavijesti.
+- Ranjiva XLSX biblioteka zamijenjena je ExcelJS-om. Import podržava XLSX/CSV; stariji XLS treba sačuvati kao XLSX. CSV izvoz neutralizira formule; uvoz je ograničen na 2 MB i 2000 redova.
+- API odgovori su privatni i ne keširaju se. Dodane su provjere porijekla zahtjeva i sigurnosna zaglavlja. Fiskalni datumi su usklađeni s Europe/Sarajevo.
 
-**Company → Plant → Department → Employee → ESO → Corrective Action**
+Employee prijava samo ID-om zadržava raniji poslovni model: ona ne potvrđuje identitet lozinkom. Lozinke svih ostalih uloga ostaju obavezne. Novim/izmijenjenim privilegovanim računima lozinka mora imati najmanje 8 znakova i najviše 72 bajta.
 
-The current company can contain multiple plants while keeping operational data separated by plant.
+## Provjere
 
-### Access model
-- Employee, Maintenance, Supervisor, Admin and Management are scoped to their assigned plant.
-- Super Admin is company-wide and can see all plants, create/manage plants, and view corporate plant metrics.
-- Plant-scoped users cannot assign tasks to or browse employees, departments, locations or ESO records from another plant.
+```sh
+npm ci
+npm run check:env
+npm run typecheck
+npm test
+npm run test:database
+npm run test:routes
+npm run build
+```
 
-### Current data migration
-All existing data is preserved and assigned to the initial plant:
+Testovi koriste sintetičke podatke i ne mijenjaju produkciju. Browser provjera je u `tests/ui-smoke.cjs`; zahtijeva Playwright i lokalno pokrenut build. Rezultati završnih provjera i tačno stanje baze navedeni su u `PROVJERE.md`.
 
-- Plant: **Cazin**
-- Plant code: **CAZIN**
-
-For the connected production Supabase project this migration has already been applied. Do not run it again there. The SQL file is included for source control and fresh installations.
-
-## New in v5.6.1
-- `plants` table and plant ownership across operational tables.
-- Plant-aware login with optional Plant Code.
-- Super Admin **Plants** administration page.
-- Super Admin can create, edit, activate and deactivate plants.
-- Super Admin can select a plant when creating/editing employees, departments and locations.
-- Admin is restricted to their own plant.
-- ESO reporting, corrective actions, notifications, dashboards, monthly analytics and exports are plant-scoped for non-Super Admin roles.
-- Super Admin receives a **Corporate Plant Overview** with plant-level metrics.
-- Employee import template supports Plant Code.
-- Data exports include Plant / Plant Code and an XLSX Plant Summary sheet.
-- Maintenance/Supervisor assignment is restricted to the ESO's plant.
-
-## Login
-Company and Plant Code can remain blank while an Employee ID uniquely identifies one active user. If Employee IDs overlap, use the codes to disambiguate the account.
-
-Current initial values are:
-- Company Code: `DEFAULT`
-- Plant Code: `CAZIN`
-
-## Adding another plant
-A company Super Admin can open **Plants**, create e.g. `Madrid / MADRID`, and then create/import Madrid employees, departments and locations under that plant. Cazin users remain isolated from Madrid data, while Super Admin can view both.
-
-## Supabase migration
-Fresh installations should run:
-
-`supabase/v5_6_1_multi_plant_migration.sql`
-
-The migration is additive/backfilling and preserves existing data by assigning it to the first plant.
-
-## Deploy
-Upload/commit the project to GitHub `main` and allow Vercel to deploy. For the current connected ESO Supabase project, the required v5.6 and v5.6.1 database migrations have already been applied.
-
-## V5.7 Platform Owner / Multi-Corporation SaaS
-- New Platform Owner Console: `/owner`
-- First platform owner is bootstrapped from Employee ID `10375305` and uses the same existing password.
-- Platform Owner can create a new corporation, Company Code, first Plant and first Company Super Admin in one onboarding workflow.
-- Company-specific login URLs use `/c/COMPANYCODE` so Employee IDs may safely overlap between different corporations while the employee login screen stays simple.
-- Company Super Admin remains cross-plant only inside their own corporation; Plant Admin and other roles remain plant-scoped.
-- Platform Owner can edit plan/subscription state and activate/deactivate corporations.
-- Supabase migrations required for V5.7 are included in `supabase/v5_7_platform_owner_migration.sql` and have already been applied to the current ESO Supabase project used during development.
-
-
-## V5.7.2 Platform Owner credentials
-Platform Owner is intentionally separate from employee/Supabase credentials. Configure these server-only environment variables in Vercel: `PLATFORM_OWNER_ID`, `PLATFORM_OWNER_PASSWORD`, and optionally `PLATFORM_OWNER_NAME`. The `/owner` console authenticates only against these server secrets.
-
-## V5.8 — Due Dates & Overdue Corrective Actions
-- Admin/Super Admin must set a due date when assigning or reassigning a corrective action.
-- Open tasks become Overdue dynamically when the due timestamp passes; completion clears them from overdue metrics automatically.
-- Dashboard includes an Overdue KPI with drill-down.
-- Corrective Actions includes All / Overdue / Assigned / In Progress filters and overdue-day badges.
-- ESO Details shows Due Date and overdue age.
-- Corporate Plant Overview includes overdue counts per plant.
-- Excel/CSV/JSON export includes Due At and Overdue fields.
-- Supabase performance index is in `supabase/v5_8_due_date_overdue.sql`; it has already been applied to the current ESO Supabase project.
+Objava na stvarnom Vercel projektu, stvarna prijava korisničkim lozinkama, fizički upload u produkcijski Storage i dostava push obavijesti zahtijevaju provjeru poslije deploymenta. Paket ne sadrži stvarne server ključeve niti korisničke lozinke.

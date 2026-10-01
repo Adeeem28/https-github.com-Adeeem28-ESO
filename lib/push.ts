@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import {validPushEndpoint} from './security';
 import { db } from '@/lib/server';
 
 let configured=false;
@@ -16,7 +17,8 @@ export async function sendPushToUsers(userIds:string[],payload:{title:string;bod
   let sent=0;
   await Promise.all((subs||[]).map(async(s:any)=>{
     try{
-      await webpush.sendNotification({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify(payload),{TTL:60*60*24,urgency:'high'});
+      if(!validPushEndpoint(s.endpoint))return;
+      await webpush.sendNotification({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify(payload),{TTL:60*60*24,urgency:'high',timeout:8000});
       sent++;
     }catch(e:any){
       if(e?.statusCode===404||e?.statusCode===410)await db.from('push_subscriptions').update({active:false,updated_at:new Date().toISOString()}).eq('id',s.id);
