@@ -12,7 +12,7 @@ export async function GET(req:NextRequest) {
   const before=req.nextUrl.searchParams.get('before');if(before&&/^\d+$/.test(before))aq=aq.lt('id',before);
   const [photos,extra,audit,history]=await Promise.all([
    db.from('eso_attachments').select('id,storage_path,file_name,attachment_type,created_at,removed_at').eq('company_id',me.company_id).eq('plant_id',r.plant_id).eq('eso_report_id',r.id).is('removed_at',null).order('created_at'),
-   db.from('eso_additional_locations').select('location_id,locations(name)').eq('company_id',me.company_id).eq('plant_id',r.plant_id).eq('eso_report_id',r.id),aq,
+   db.from('eso_additional_locations').select('location_id,locations:locations!eso_additional_locations_location_id_fkey(name)').eq('company_id',me.company_id).eq('plant_id',r.plant_id).eq('eso_report_id',r.id),aq,
    db.from('eso_status_history').select('id,old_status,new_status,changed_by,note,changed_at,employees(first_name,last_name)').eq('company_id',me.company_id).eq('plant_id',r.plant_id).eq('eso_report_id',r.id).order('changed_at',{ascending:false}).limit(30)
   ]);
   if([photos,extra,audit,history].some(result=>result.error))return NextResponse.json({error:'Could not load photos and audit. Check the V6.2.2 database migration.'},{status:503});
