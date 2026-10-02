@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {safeEqual,validSessionToken,validPushEndpoint,photoMatchesMime,digest} from '../lib/security';
 import {unsafeOrigin} from '../lib/request-policy';
-import {fiscalYearInfo,inCurrentFY} from '../lib/fiscal-year';
+import {fiscalYearInfo,inCurrentFY,closurePeriodKeys,localDateKey} from '../lib/fiscal-year';
 import {fetchAll} from '../lib/pagination';
 import {writeWorkbook,writeCsv,readEmployeeRows} from '../lib/spreadsheet';
 import {validateXlsxArchive} from '../lib/xlsx-safety';
@@ -13,6 +13,7 @@ test('push subscriptions accept supported HTTPS services and reject SSRF destina
 test('file content must match declared image MIME',()=>{const png=Buffer.from('iVBORw0KGgoAAAANSUhEUg==','base64');assert.ok(photoMatchesMime(png,'image/png'));assert.equal(photoMatchesMime(Buffer.from('<script>bad</script>'),'image/png'),false);assert.equal(photoMatchesMime(png,'image/jpeg'),false);});
 test('cross-site API writes and opaque origins rejected; same-origin writes accepted',()=>{const url='https://eso.example/api/reports';assert.ok(unsafeOrigin(new Request(url,{method:'POST',headers:{origin:'https://evil.example'}})));assert.ok(unsafeOrigin(new Request(url,{method:'POST',headers:{origin:'null'}})));assert.ok(unsafeOrigin(new Request(url,{method:'POST',headers:{'sec-fetch-site':'cross-site'}})));assert.equal(unsafeOrigin(new Request(url,{method:'POST',headers:{origin:'https://eso.example'}})),false);});
 test('fiscal year switches at midnight Sarajevo rather than browser timezone',()=>{const now=new Date('2026-09-30T22:00:00Z');assert.equal(fiscalYearInfo(now).year,2027);assert.equal(fiscalYearInfo(new Date('2026-09-30T21:59:59Z')).year,2026);assert.equal(inCurrentFY('2026-09-30T21:59:59Z',now),false);assert.equal(inCurrentFY('2026-09-30T22:00:00Z',now),true);});
+test('closure-rate periods use Sarajevo local dates and Monday week start',()=>{const now=new Date('2026-10-07T10:00:00Z');assert.equal(localDateKey(now),'2026-10-07');assert.deepEqual(closurePeriodKeys(now),{today:'2026-10-07',weekStart:'2026-10-05',monthStart:'2026-10-01',fyStart:'2026-10-01'});});
 test('pagination reads more than 1000 records and propagates real errors',async()=>{const rows=Array.from({length:1247},(_,i)=>({id:i})),calls:number[]=[];const q={range:async(start:number,end:number)=>{calls.push(start);return {data:rows.slice(start,end+1),error:null};}};assert.equal((await fetchAll(q)).data?.length,1247);assert.deepEqual(calls,[0,500,1000]);const error={message:'Database unavailable'};assert.equal((await fetchAll({range:async()=>({data:null,error})})).error,error);});
 test('Excel export and employee import roundtrip values using the new parser',async()=>{const bytes=await writeWorkbook([{name:'Employees',rows:[{'Employee ID':'00123','First Name':'Test','Last Name':'Employee','Annual Target':12}]}]);validateXlsxArchive(bytes);const rows=await readEmployeeRows(bytes);assert.equal(rows[0].values['Employee ID'],'00123');assert.equal(rows[0].values['Annual Target'],'12');});
 test('CSV export neutralizes spreadsheet formulas and quotes values',()=>{const csv=writeCsv([{Description:'=HYPERLINK("https://evil.test")',Name:'a,"b"'}]);assert.ok(csv.includes("'=HYPERLINK"));assert.ok(csv.includes('a,""b""'));});

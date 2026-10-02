@@ -1,15 +1,16 @@
 "use client";
 import {ChangeEvent,FormEvent,useEffect,useRef,useState} from "react";
 import {AlertCircle,Bell,CalendarClock,Camera,CheckCircle2,ChevronRight,ClipboardList,Database,Download,FileSpreadsheet,FileText,Home,Image as ImageIcon,KeyRound,LoaderCircle,LogOut,MapPin,Menu,Plus,RefreshCw,Search,ShieldAlert,ShieldCheck,Trash2,Upload,Users,Wrench,X,Trophy,Star,MessageSquare,Sun,Moon} from "lucide-react";
-import type {AppNotification,Department,ESOReport,Location,Plant,Role,Urgency,User,VoEReport} from "@/types";
+import type {AppNotification,ClosureRates,Department,ESOReport,Location,Plant,Role,Urgency,User,VoEReport} from "@/types";
 import {ReportEntry,ReportWorkspace,TaskWorkspace} from "@/components/eso-workflow";
+import {HuntView} from "@/components/eso-hunt";
 import {fiscalYearInfo,inCurrentFY,localParts} from '@/lib/fiscal-year';
 import {AutoTranslator,LanguageControl} from "@/components/i18n";
-type View="dashboard"|"report"|"my-history"|"all-reports"|"maintenance"|"employees"|"departments"|"locations"|"plants"|"exports"|"voe-submit"|"voe-history"|"voe-all";
+type View="dashboard"|"report"|"my-history"|"all-reports"|"maintenance"|"employees"|"departments"|"locations"|"plants"|"exports"|"voe-submit"|"voe-history"|"voe-all"|"hunt";
 type MonthlyTrackingPoint={month:number;label:string;reported:number;resolved:number};
 type ResolverStat={id:string;name:string;employeeId:string;department:string;role:string;resolvedYtd:number;resolvedThisMonth:number};
 type ReporterStat={id:string;name:string;employeeId:string;department:string;role:string;reportedYtd:number;reportedThisMonth:number};
-type TrackingData={year:number;currentMonth:number;monthly:MonthlyTrackingPoint[];reporterLeaderboard:ReporterStat[];resolverLeaderboard:ResolverStat[]};
+type TrackingData={year:number;currentMonth:number;monthly:MonthlyTrackingPoint[];reporterLeaderboard:ReporterStat[];resolverLeaderboard:ResolverStat[];closureRates?:ClosureRates};
 const canAdmin=(r?:Role)=>r==="Admin"||r==="Super Admin";
 const canMaintain=(r?:Role)=>r==="Maintenance"||r==="Supervisor"||r==="Management"||canAdmin(r);
 const canViewAll=(r?:Role)=>r==="Management"||canAdmin(r);
@@ -44,8 +45,9 @@ export default function ESOApp({companyCode}:{companyCode?:string}={}){
     <Nav icon={<Home size={17}/>} label="Dashboard" active={view==='dashboard'} onClick={()=>go('dashboard')}/>
     <Nav icon={<Plus size={17}/>} label="Report ESO" active={view==='report'} onClick={()=>go('report')}/>
     <Nav icon={<ClipboardList size={17}/>} label="My ESO History" active={view==='my-history'} onClick={()=>go('my-history')}/>
-    {canMaintain(currentUser.role)&&<Nav icon={<Wrench size={17}/>} label={canAdmin(currentUser.role)?"Corrective Action Tasks":"My Tasks"} active={view==='maintenance'} onClick={()=>go('maintenance')}/>}
+    {canMaintain(currentUser.role)&&<Nav icon={<Wrench size={17}/>} label={canAdmin(currentUser.role)?"Corrective Action Tasks":"My Tasks"} active={view==='maintenance'} onClick={()=>go('maintenance')}/>} 
     {canViewAll(currentUser.role)&&<><div className="nav-section">ESO</div><Nav icon={<FileText size={17}/>} label="All ESO Reports" active={view==='all-reports'} onClick={()=>go('all-reports')}/><Nav icon={<Download size={17}/>} label="Data & Reports" active={view==='exports'} onClick={()=>go('exports')}/></>}
+    <div className="nav-section hunt-section">ESO HUNT</div><Nav icon={<Trophy size={17}/>} label="ESO Hunt" active={view==='hunt'} onClick={()=>go('hunt')}/>
     <div className="nav-section voe-section">VOICE OF EMPLOYEE</div><Nav icon={<MessageSquare size={17}/>} label="Submit Voice" active={view==='voe-submit'} onClick={()=>go('voe-submit')}/><Nav icon={<ClipboardList size={17}/>} label="My Voice History" active={view==='voe-history'} onClick={()=>go('voe-history')}/>{canViewAll(currentUser.role)&&<Nav icon={<MessageSquare size={17}/>} label="Voice of Employee" active={view==='voe-all'} onClick={()=>go('voe-all')}/>}
     {canAdmin(currentUser.role)&&<><div className="nav-section">ADMINISTRATION</div>{currentUser.role==='Super Admin'&&<Nav icon={<Database size={17}/>} label="Plants" active={view==='plants'} onClick={()=>go('plants')}/>}<Nav icon={<Users size={17}/>} label="Employee Tracker" active={view==='employees'} onClick={()=>go('employees')}/><Nav icon={<Database size={17}/>} label="Departments" active={view==='departments'} onClick={()=>go('departments')}/><Nav icon={<MapPin size={17}/>} label="Locations" active={view==='locations'} onClick={()=>go('locations')}/></>}
    </nav>
@@ -53,6 +55,7 @@ export default function ESOApp({companyCode}:{companyCode?:string}={}){
   </aside>
   <main className="content">
    {view==='dashboard'&&<Dashboard user={currentUser} users={users} reports={reports} topEmployeeYtd={topEmployeeYtd} tracking={tracking} corporatePlants={corporatePlants} onReport={()=>go('report')} onRefresh={refresh} refreshing={refreshing} onOpen={setSelected}/>} 
+   {view==='hunt'&&<HuntView currentUser={currentUser} users={users} plants={plants} locations={locations} reports={reports} onOpen={setSelected}/>} 
    {view==='report'&&<ReportEntry user={currentUser} locations={locations.filter(l=>l.active!==false)} onDone={async()=>{await load();go('my-history')}}/>}
    {view==='my-history'&&<ReportsTable title="My ESO History" reports={reports.filter(r=>r.reporterId===currentUser.id)} users={users} onOpen={setSelected}/>}
    {view==='all-reports'&&<ReportsTable title="All ESO Submissions" reports={reports} users={users} onOpen={setSelected} adminFilters/>}
@@ -112,6 +115,7 @@ function Dashboard({user,users,reports,topEmployeeYtd,tracking,corporatePlants,o
    <div className="critical-highlight clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:"Critical Open ESO",reports:reports.filter(r=>r.urgency==='Critical'&&r.status!=='Completed')})}><div><span>CRITICAL OPEN</span><strong>{critical}</strong></div><div className="critical-icon"><ShieldAlert size={26}/></div></div>
    <div className="overdue-highlight clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:"Overdue Corrective Actions",reports:reports.filter(r=>r.overdue)})}><div><span>OVERDUE</span><strong>{overdue}</strong></div><div className="overdue-icon"><CalendarClock size={26}/></div></div>
   </div>
+  {tracking?.closureRates&&<ClosureRatePanel rates={tracking.closureRates}/>} 
   <div className="dashboard-highlight-row top-performers-row">
    <TopResolverCard top={topResolver} onClick={topResolver?()=>setKpiView({title:`${topResolver.name} — Resolved ESO YTD`,reports:reports.filter(r=>r.status==='Completed'&&r.resolvedBy===topResolver.id&&inCurrentFY(r.completedAt||r.createdAt))}):undefined}/>
    <TopEmployeeCard top={topEmployeeYtd} onClick={topEmployeeYtd?()=>setKpiView({title:`${topEmployeeYtd.name} — ESO YTD`,reports:yr.filter(r=>r.reporterId===topEmployeeYtd.id)}):undefined}/>
@@ -123,6 +127,7 @@ function Dashboard({user,users,reports,topEmployeeYtd,tracking,corporatePlants,o
   {kpiView&&<KpiReportsModal title={kpiView.title} reports={kpiView.reports.map(item=>reports.find(r=>r.id===item.id)||item)} users={users} onOpen={onOpen} onClose={()=>setKpiView(null)}/>} 
  </div>
 }
+function ClosureRatePanel({rates}:{rates:ClosureRates}){const items=[['week','This week',rates.week],['month','This month',rates.month],['year','Fiscal year',rates.year]] as const;return <div className="panel closure-rate-panel"><div className="panel-head"><div><h3>ESO closure rate</h3><span>Option 2 • reports created in the period and closed by period end</span></div><CheckCircle2 size={22}/></div><div className="closure-rate-grid">{items.map(([key,label,period])=><div className={`closure-rate-card ${key}`} key={key}><div><span>{label}</span><strong>{period.rate}%</strong></div><div className="closure-rate-bar"><i style={{width:`${period.rate}%`}}/></div><small>{period.closed} closed / {period.reported} reported • {period.open} open</small></div>)}</div></div>}
 function KpiReportsModal({title,reports,users,onOpen,onClose}:{title:string,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void,onClose:()=>void}){return <div className="modal-backdrop"><div className="modal kpi-modal"><div className="modal-head"><div><h2>{title}</h2><span>{reports.length} records</span></div><button onClick={onClose}><X/></button></div><div className="modal-body"><ReportsTable title={title} reports={reports} users={users} onOpen={onOpen}/></div></div></div>}
 
 function TrackingInsights({tracking,reports,users,onOpen}:{tracking:TrackingData,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void}){
