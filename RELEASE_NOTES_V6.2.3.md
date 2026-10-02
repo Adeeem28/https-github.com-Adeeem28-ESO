@@ -8,6 +8,8 @@
 - Dashboard ima ručni REFRESH sa zaštitom od dvostrukog klika.
 - `CRITICAL OPEN` i `OVERDUE` su spojeni u isti 50/50 red na mobilnom i desktop pregledu, dok su četiri osnovna KPI-ja uredno raspoređena iznad.
 - Overdue lista uz zaposlenog prikazuje `Overdue by: ime` (ili `Not assigned` kada nema dodijeljenog izvršioca).
+- Dashboard sada prikazuje `CRITICAL OPEN` i `OVERDUE` iznad Top Resolver/Employee kartica; Top ESO Reporters su klikabilni i otvaraju prijave izabrane osobe.
+- KPI i department prikazi imaju filtere za sve statuse, urgentnosti i kategorije (`Safety` / `Environmental`).
 
 ## Administracija završenih ESO zapisa
 
