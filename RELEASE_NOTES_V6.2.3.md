@@ -13,6 +13,7 @@
 - Reports/KPI filteri sada uključuju period `From/To`, department i lokaciju.
 - `In Progress` redovi u tabelama jasno prikazuju `Assigned To: ime • uloga`.
 - Puni filter panel je ograničen na `All ESO Submissions`; KPI popupi (`Completed`, `Overdue`, Top Reporter/Resolver) ostaju čisti bez duplih filtera. Filteri su složeni u responsive grid bez desktop overflow-a.
+- Department drill-down KPI kartice (`Total`, `Open`, `In Progress`, `Completed`) sada imaju tamnu površinu i kontrastan tekst kada je uključena dark tema.
 
 ## Administracija završenih ESO zapisa
 

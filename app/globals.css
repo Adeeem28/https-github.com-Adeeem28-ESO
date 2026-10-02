@@ -454,8 +454,14 @@ html[data-theme="dark"] .detail-block p,html[data-theme="dark"] .empty,html[data
 html[data-theme="dark"] .modal-body{background:var(--panel)}html[data-theme="dark"] .modal-head{background:#0b1526}html[data-theme="dark"] .login-card{background:var(--panel);color:var(--text)}
 html[data-theme="dark"] .login-page{background:linear-gradient(135deg,#050b15,#12233b)}html[data-theme="dark"] .login-card input{background:#111b2a;color:var(--text)}
 html[data-theme="dark"] .outline-btn,html[data-theme="dark"] .outline-small{background:#1e3049;color:#cfe0f9;border-color:#5b8de8}html[data-theme="dark"] .department-list>div,html[data-theme="dark"] .task-footer{border-color:#2a394d}
+html[data-theme="dark"] .department-list>div,html[data-theme="dark"] .department-row{background:#182335!important;color:var(--text)}
+html[data-theme="dark"] .department-row .department-main b{color:#edf3fb}
+html[data-theme="dark"] .department-row .department-main small{color:#aab9cc}
 html[data-theme="dark"] .critical-highlight,html[data-theme="dark"] .dept-card,html[data-theme="dark"] .resolver-row,html[data-theme="dark"] .month-cell,html[data-theme="dark"] .reports-table tr{background:#182335;color:var(--text);border-color:#34445a}
 html[data-theme="dark"] .critical-highlight strong,html[data-theme="dark"] .dept-card b,html[data-theme="dark"] .dept-card strong,html[data-theme="dark"] .resolver-person b,html[data-theme="dark"] .resolver-metric strong,html[data-theme="dark"] .month-cell>strong{color:#edf3fb}
+html[data-theme="dark"] .dept-summary>div{background:#182335;color:var(--text);border-color:#385071}
+html[data-theme="dark"] .dept-summary span{color:#aab9cc}
+html[data-theme="dark"] .dept-summary strong{color:#edf3fb}
 html[data-theme="dark"] .critical-highlight .critical-icon{background:#3b252b;color:#ff8b8b}html[data-theme="dark"] .dept-card-button:hover{background:#243650;border-color:#6d9cff}
 html[data-theme="dark"] .month-cell.current{background:#253654;box-shadow:inset 0 0 0 1px #6d9cff}html[data-theme="dark"] .resolver-row{box-shadow:none}
 html[data-theme="dark"] .starred-row{background:#3a321f!important;color:#fff4c7}html[data-theme="dark"] .starred-row td{border-color:#5c5133}html[data-theme="dark"] .starred-row td small{color:#d7cda8}
