@@ -532,3 +532,15 @@ html[data-theme="dark"] .overdue-by-cell{color:#ff9a9a!important}
  .overdue-icon svg{width:18px;height:18px}
 }
 @media(max-width:380px){.overdue-highlight{padding:9px}.overdue-highlight strong{font-size:25px}.overdue-icon{width:30px;height:30px;flex-basis:30px;border-radius:9px}.overdue-icon svg{width:16px;height:16px}}
+
+/* V6.2.3 report filters and assignment visibility */
+.filter-date{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;padding:0 8px;border-radius:6px;color:var(--muted);font-size:10px;font-weight:900;white-space:nowrap}
+.filter-date input{border:0;background:transparent;color:var(--text);outline:0;padding:9px 2px;font-size:11px;min-width:130px}
+.assigned-to-cell{color:#315fab!important;font-weight:800}
+html[data-theme="dark"] .filter-date{background:#1e3049;border-color:#385071;color:#aab9cc}
+html[data-theme="dark"] .filter-date input{color:#edf3fb}
+html[data-theme="dark"] .assigned-to-cell{color:#9fc1ee!important}
+@media(max-width:650px){
+ .filters .filter-date{width:100%;justify-content:space-between}
+ .filters .filter-date input{flex:1;min-width:0}
+}

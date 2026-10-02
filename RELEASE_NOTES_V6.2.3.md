@@ -10,6 +10,8 @@
 - Overdue lista uz zaposlenog prikazuje `Overdue by: ime` (ili `Not assigned` kada nema dodijeljenog izvršioca).
 - Dashboard sada prikazuje `CRITICAL OPEN` i `OVERDUE` iznad Top Resolver/Employee kartica; Top ESO Reporters su klikabilni i otvaraju prijave izabrane osobe.
 - KPI i department prikazi imaju filtere za sve statuse, urgentnosti i kategorije (`Safety` / `Environmental`).
+- Reports/KPI filteri sada uključuju period `From/To`, department i lokaciju.
+- `In Progress` redovi u tabelama jasno prikazuju `Assigned To: ime • uloga`.
 
 ## Administracija završenih ESO zapisa
 
