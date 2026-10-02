@@ -544,3 +544,12 @@ html[data-theme="dark"] .assigned-to-cell{color:#9fc1ee!important}
  .filters .filter-date{width:100%;justify-content:space-between}
  .filters .filter-date input{flex:1;min-width:0}
 }
+
+/* Keep the full report filter bar inside the panel at every viewport size. */
+.report-filters{display:grid;grid-template-columns:minmax(230px,2fr) repeat(4,minmax(130px,1fr)) auto;gap:8px;align-items:stretch;width:100%;margin-bottom:14px}
+.report-filters .search{min-width:0;width:100%}
+.report-filters>select,.report-filters>.filter-date,.report-filters>.star-filter{min-width:0;width:100%}
+.report-filters>.star-filter{justify-content:center;margin:0}
+@media(max-width:1400px){.report-filters{grid-template-columns:minmax(220px,2fr) repeat(3,minmax(125px,1fr)) auto}}
+@media(max-width:900px){.report-filters{grid-template-columns:minmax(190px,2fr) repeat(2,minmax(125px,1fr)) auto}}
+@media(max-width:650px){.report-filters{grid-template-columns:1fr;gap:6px}.report-filters>*{width:100%;min-width:0}.report-filters>.search{min-width:0}.report-filters>.star-filter{min-height:38px}}
