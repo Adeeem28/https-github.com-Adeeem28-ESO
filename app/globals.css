@@ -410,7 +410,7 @@
 }
 
 /* V6.0 Phase 1 — ESO Star */
-.eso-star-inline,.eso-star-title{color:#d79b00;vertical-align:-2px;margin-right:6px}
+.eso-star-inline,.eso-star-title{color:#d79b00;vertical-align:-2px;margin-right:6px}.star-count-cell{color:#9a6b00!important;font-weight:800}
 .starred-row{background:#fffdf5}
 .star-filter{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;padding:9px 12px;border-radius:7px;font-weight:800;cursor:pointer;white-space:nowrap}
 .star-filter.active{border-color:#d79b00;background:#fff8dc;color:#9a6b00}

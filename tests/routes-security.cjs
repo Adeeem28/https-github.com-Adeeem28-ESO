@@ -104,6 +104,7 @@ async function main(){
   for(const file of walk(path.join(root,'app/api')).filter(x=>x.endsWith('route.ts'))){const rel=path.relative(path.join(root,'app'),path.dirname(file)).replaceAll(path.sep,'/');if(publicPaths.has(rel))continue;const exports=load(path.relative(root,file));me=null;for(const method of ['GET','POST','PATCH','DELETE'])if(exports[method]){const result=await exports[method](req(method));assert.ok([401,403].includes(result.status),file+' '+method);count++;}}
  assert.equal(count,35);
  });
+ await record('ESO star writes through the multi-vote RPC','control',async()=>{me.role='management';const result=await load('app/api/reports/star/route.ts').POST(req('POST',{reportId:r.id,starred:true}));assert.equal(result.status,200);const call=calls.find(x=>x.type==='rpc');assert.equal(call.name,'eso_toggle_star_v625');assert.equal(call.args.p_actor,me.id);assert.equal(call.args.p_report,r.id);assert.equal(call.args.p_starred,true);});
  await record('bulk annual target update is scoped and leaves inactive users alone','control',async()=>{
   me.role='admin';
   const result=await load('app/api/employees/bulk-target/route.ts').POST(req('POST',{target:24}));
