@@ -5,6 +5,10 @@ const u={id:'u1',name:'Test Admin',employeeId:'100',department:'Operations',role
 const report={id:'r1',revision:1,esoNo:'ESO-TEST-001',reporterId:'u1',reporterName:'Test Admin',createdAt:'2026-10-23T12:00:00Z',locationId:'l1',location:'Test Location',plantId:'p1',plantName:'Test Plant',category:'Environmental',urgency:'High',description:'Open',status:'Open'};
 await p.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;let data={};if(path==='/api/data')data={currentUser:u,users:[u],reports:[report],locations:[{id:'l1',name:'Test Location',plantId:'p1',active:true}],departments:[{id:'d1',name:'Operations',plantId:'p1',active:true}],plants:[{id:'p1',name:'Test Plant',code:'TEST',active:true}],corporatePlants:[]};else if(path==='/api/reports/page')data={reports:[report],total:1,page:1,pageSize:50};else if(path==='/api/reports/detail')data={report:{id:'r1',revision:1,plant_id:'p1',location_id:'l1',category:'environmental',urgency:'high',description:'Open',status:'open'},task:null,additionalLocations:[],photos:[],audit:[],legacyHistory:[],permissions:{edit:true,take:true,complete:true}};else if(path==='/api/reports/history')data={reports:[report]};else if(path==='/api/voe')data={reports:[{id:'v1',reporterId:'u1',reporterName:'Test Admin',category:'other',description:'Open',status:'New',createdAt:'2026-10-23T12:00:00Z'}]};else if(path==='/api/notifications')data={notifications:[]};return r.fulfill({contentType:'application/json',body:JSON.stringify(data)})});
 await p.goto('http://localhost:3250');await p.locator('.app-shell').waitFor();
+// Dismiss the install offer through its UI before testing underlying pages.
+// Its login/post-login lifecycle is covered by ui-pwa-install.cjs.
+await p.locator('.pwa-install-close').click();
+await p.locator('.pwa-install-offer').waitFor({state:'hidden'});
 const pages=['dashboard','report','my-history','maintenance','all-reports','exports','hunt','voe-submit','voe-history','voe-all','plants','employees','departments','locations'];
 for(const lang of ['bs','de','es','en']){
  await p.evaluate(lang=>{localStorage.setItem('eso-language',lang);window.dispatchEvent(new CustomEvent('eso-language-change',{detail:{choice:lang,resolved:lang}}))},lang);
@@ -24,7 +28,7 @@ for(const index of [1,7,11]){
  await p.setViewportSize({width:1440,height:1000});await p.locator('.sidebar .nav-btn').nth(index).click();await p.waitForTimeout(70);
  await p.setViewportSize({width:390,height:844});await p.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=0);
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile overflow '+lang+' '+pages[index]);
- if(index===7&&lang!=='en')await p.screenshot({path:'work/localization-'+lang+'-mobile.png',fullPage:true});
+ if(index===7&&lang!=='en')await p.screenshot({path:'test-results/localization-'+lang+'-mobile.png',fullPage:true});
 }
 await p.setViewportSize({width:1440,height:1000});
 console.log('PASS 14 application pages and mobile layouts: '+lang);
@@ -48,3 +52,4 @@ for(const route of ['/register','/owner'])for(const lang of ['bs','de','es','en'
 }
 assert.deepEqual(errors,[]);console.log('PASS live text/attribute updates, language round trip and user content protection');
 }finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});
+

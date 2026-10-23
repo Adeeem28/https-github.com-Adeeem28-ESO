@@ -41,6 +41,7 @@ jobs:
           node tests/ui-dashboard-loading.cjs
           node tests/ui-smoke.cjs
           node tests/ui-voe.cjs
+          node tests/ui-pwa-install.cjs
           node --import tsx tests/ui-localization.cjs
       - uses: actions/upload-artifact@v4
         if: failure()
