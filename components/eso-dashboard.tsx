@@ -23,6 +23,32 @@ import LoadingStatus from "./loading-status";
 import { Title } from "./eso-shared";
 import { ReportsTable } from "./eso-reports";
 
+function MetricCarousel({children}:{children:React.ReactNode}){
+  const track=useRef<HTMLDivElement>(null);
+  const pausedUntil=useRef(0);
+  const pause=()=>{pausedUntil.current=Date.now()+3000;};
+  useEffect(()=>{
+    const el=track.current;if(!el)return;
+    const mobile=window.matchMedia('(max-width:800px)');
+    const reduced=window.matchMedia('(prefers-reduced-motion:reduce)');
+    let frame=0,last=0,position=el.scrollLeft;
+    const animate=(time:number)=>{
+      const elapsed=last?Math.min(time-last,50):0;last=time;
+      if(mobile.matches&&!reduced.matches&&!document.hidden&&Date.now()>=pausedUntil.current&&!el.querySelector(":focus-visible")&&!document.querySelector('.modal-backdrop')){
+        // Increasing scrollLeft moves the visible cards from right to left.
+        const max=el.scrollWidth-el.clientWidth;
+        position+=elapsed*.022;
+        if(position>=max&&max>0)position=0;
+        el.scrollLeft=position;
+      }else position=el.scrollLeft;
+      frame=requestAnimationFrame(animate);
+    };
+    frame=requestAnimationFrame(animate);
+    return()=>cancelAnimationFrame(frame);
+  },[]);
+  return <div ref={track} className="dashboard-metric-carousel" onPointerDown={pause} onWheel={pause} onTouchMove={pause} onKeyDown={pause}>{children}</div>;
+}
+
 export function Dashboard({
   user,
   users,
@@ -176,6 +202,7 @@ export function Dashboard({
         </div>
       </div>
       <div className="dashboard-summary-grid">
+        <MetricCarousel>
         <StatCard
           label="ESO YTD"
           value={summary?.ytd ?? yr.length}
@@ -287,6 +314,7 @@ export function Dashboard({
           </div>
         </div>
 
+        </MetricCarousel>
         <TopResolverCard
           top={topResolver}
           onClick={
@@ -1326,4 +1354,6 @@ function useHistoryAction(getHistory: HistoryLoader) {
     ) : null,
   };
 }
+
+
 
