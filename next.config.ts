@@ -1,5 +1,6 @@
 import type {NextConfig} from 'next';
 const nextConfig:NextConfig={
+ distDir:process.env.ESO_BUILD_DIR||'.next',
  reactStrictMode:true,poweredByHeader:false,
  async headers(){return [{source:'/:path*',headers:[
   {key:'X-Content-Type-Options',value:'nosniff'},

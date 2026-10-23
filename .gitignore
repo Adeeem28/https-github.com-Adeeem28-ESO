@@ -1,7 +1,15 @@
 node_modules
 .next
+.next-check
+.next-predeploy
 .env
 .env.local
+.env.*
+!.env.example
+env.local
+*.tsbuildinfo
+work/
+test-results/
 .vercel
 *.log
 .DS_Store

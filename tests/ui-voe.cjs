@@ -1,0 +1,33 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE_PATH});try{const page=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'});const errors=[];page.on('pageerror',e=>errors.push(e.message));const user={id:'u1',name:'Test Manager',employeeId:'100',department:'Operations',role:'Super Admin',annualTarget:12,active:true,plantId:'p1',plantName:'Plant A',companyId:'c1'};let rows=[{id:'v1',reporterId:'u2',reporterName:'Test Employee',plantName:'Plant A',category:'other',description:'Synthetic transfer description',status:'New',sourceEsoReportId:'e1',sourceEsoReportNumber:'ESO-TEST-001',transferReason:'Workplace feedback',createdAt:'2026-01-01T00:00:00Z',updatedAt:'2026-01-01T00:00:00Z'}];let fail=false,voeReads=0;const writes=[];
+await page.route('**/api/**',async route=>{const req=route.request(),path=new URL(req.url()).pathname;let data={},status=200;if(path==='/api/data')data={currentUser:user,users:[user],reports:[],locations:[],departments:[],plants:[],corporatePlants:[]};else if(path==='/api/notifications')data={notifications:[]};else if(path==='/api/voe'){if(req.method()==='GET'){voeReads++;if(fail){status=500;data={error:'Synthetic load error'}}else data={reports:rows}}else{const body=req.postDataJSON();writes.push(body);if(req.method()==='POST')rows.push({...body,id:'v2',reporterId:'u1',reporterName:'Test Manager',status:'New',createdAt:'2026-01-01T00:00:00Z',updatedAt:'2026-01-01T00:00:00Z'});else rows=rows.map(r=>r.id===body.id?{...r,...body,updatedAt:'2026-01-02T00:00:00Z'}:r);data={ok:true}}}await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)})});
+await page.goto(process.env.TEST_URL||'http://localhost:3250');await page.locator('.app-shell').waitFor();assert.equal(voeReads,0,'Dashboard must not load VOE history');await page.getByRole('button',{name:'Voice of Employee',exact:true}).click();await page.getByText('ESO-TEST-001',{exact:true}).waitFor();await page.getByRole('button',{name:'Review submission'}).click();await page.locator('.voe-editor select').first().selectOption('Under Review');await page.locator('.voe-editor textarea').fill('We are reviewing your feedback.');await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByText('We are reviewing your feedback.',{exact:true}).waitFor();assert.equal(writes[0].updatedAt,'2026-01-01T00:00:00Z');await page.locator('.voe-toolbar select').last().selectOption('direct');assert.equal(await page.locator('.voe-card').count(),0);
+await page.getByRole('button',{name:'Submit Voice',exact:true}).click();
+await page.locator('.voe-example').nth(5).waitFor();
+assert.equal(await page.locator('.voe-example').count(),6);
+await page.locator('.voe-form textarea').fill('Keep my own observation');
+const beforeExamples=writes.length;
+await page.getByRole('button',{name:'The right tools',exact:false}).click();
+assert.equal(await page.locator('.voe-form select').inputValue(),'equipment_tools');
+assert.equal(await page.locator('.voe-form textarea').inputValue(),'Keep my own observation');
+assert.equal(writes.length,beforeExamples);
+await page.locator('.language-trigger').click();await page.locator('[data-language="bs"]').click();
+await page.getByRole('heading',{name:'Vaš glas je važan'}).waitFor();
+await page.screenshot({path:'work/voe-compose-desktop.png',fullPage:true});
+for(const width of [768,390,320]){
+ await page.setViewportSize({width,height:900});
+ await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=0);
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No overflow at '+width);
+ if(width===390)await page.screenshot({path:'work/voe-compose-mobile.png',fullPage:true});
+}
+await page.setViewportSize({width:1440,height:1000});
+await page.locator('.language-trigger').click();await page.locator('[data-language="en"]').click();
+await page.locator('.voe-form textarea').fill('A direct employee suggestion');await page.locator('.voe-form button').click();await page.locator('.voe-card').filter({hasText:'A direct employee suggestion'}).waitFor();assert.equal(await page.locator('.voe-card').count(),1);assert.equal(await page.getByText('Synthetic transfer description',{exact:true}).count(),0);
+fail=true;await page.getByRole('button',{name:'REFRESH',exact:true}).click();await page.locator('.form-error').waitFor();assert.equal(await page.getByText('No Voice of Employee submissions in this view.',{exact:true}).count(),0);fail=false;await page.getByRole('button',{name:'REFRESH',exact:true}).click();await page.locator('.voe-card').filter({hasText:'A direct employee suggestion'}).waitFor();
+await page.getByRole('button',{name:'Voice of Employee',exact:true}).click();
+await page.locator('.voe-toolbar select').last().selectOption('all');
+await page.locator('.voe-group').nth(1).waitFor();
+assert.deepEqual(await page.locator('.voe-group-heading h2').allTextContents(),['Direct submissions','Transferred from ESO']);
+assert.ok((await page.locator('.voe-group').first().innerText()).includes('A direct employee suggestion'));
+assert.ok((await page.locator('.voe-group').nth(1).innerText()).includes('ESO-TEST-001'));
+await page.screenshot({path:'work/voe-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.waitForTimeout(400);await page.screenshot({path:'work/voe-mobile.png',fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);console.log('PASS VOE: transfer provenance, review/save, direct submission, personal history, failed-load retry, mobile overflow; no production writes.');}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

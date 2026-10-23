@@ -1,3 +1,32 @@
+# Ponovna evaluacija prije deploya — 23.10.2026.
+
+Ovaj odjeljak je aktuelan; raniji izvještaj ispod je historijski i ne predstavlja sadašnju autentikaciju ni broj testova. Deploy nije izvršen.
+
+| Provjera | Rezultat |
+|---|---|
+| Produkcijski build nakon ispravki | Prošao (.next-predeploy) |
+| Pravila, mapiranje, paginacija, prevodi i workflow | 50/50 |
+| PostgreSQL migracije i sigurnost na sintetičkim podacima | 48/48 |
+| API i sesije | 34/34, uključujući 37 zaštićenih metoda |
+| npm audit, sve zavisnosti | 0 poznatih ranjivosti |
+| Stvarna Supabase veza, tenant lookup, session schema, login RPC | Prošlo, read-only |
+| Login i obavezno postavljanje lozinke u browseru | Prošlo na 320, 390, 768, 844 i 1440 px; API mock |
+| Dashboard, lazy history, retry i mobilni prikaz | Prošlo; API mock |
+| PWA ponuda, odbijanje, ponuda nakon prijave i skrivanje nakon instalacije | Prošlo na lokalnom produkcijskom buildu; simulirani browser događaji |
+| Paginacija, pretraga, retry, mobilni overflow | Prošlo na lokalnom produkcijskom buildu; API mock |
+| Produkcijski HTTP smoke | / 200; privatni API 401; cross-origin POST 403; privatni no-store; CSP na stranici; manifest i service worker 200 |
+
+Ispravke: PWA ponuda na loginu više ne prekriva dugme prijave na malim ekranima. Filtriranje po jednoj hitnosti koristi jedan umjesto dva RPC poziva, uz test granice stranice i greške baze. Login razlikuje grešku baze (503) od neispravnih podataka (401), što je ispravljeno u prethodnoj provjeri.
+
+Prije produkcije:
+- Lokalni production configuration check prijavljuje nedostajući CRON_SECRET. Provjeriti i postaviti ga na hostingu da dnevni podsjetnici i auth cleanup rade; stanje hosting varijabli nije provjereno.
+- VAPID ključevi lokalno nisu postavljeni. Potrebni su za push obavijesti; PWA instalacija nije zavisna od njih.
+- Stvarna uspješna prijava namjenskim testnim računom, upload fotografija u Storage, stvarna push dostava i native PWA instalacija ostaju nepotvrđeni. Browser testovi koriste mock podatke; nisu zamjena za te produkcijske provjere.
+- Provjeriti hosting env, HTTPS domenu i primijenjene migracije na ciljnoj bazi. Read-only provjera ovdje je izvršena protiv baze iz lokalne konfiguracije.
+
+Ocjena: build i provjereni aplikacijski tokovi prolaze. Puna produkcijska spremnost ostaje uslovljena navedenim konfiguracijskim i stvarnim integracijskim provjerama.
+
+---
 # ESO 6.2.4 — završno stanje, 02.10.2026.
 
 Ovo je pripremljeni izvorni paket. Nije objavljen na Vercelu. Produkcijska Supabase baza `uwrhwskwnyguktddfhmy` ima primijenjene migracije V6.2.1, V6.2.2, V6.2.3, V6.2.4 HUNT i korektivnu HUNT trigger/index migraciju.
@@ -30,3 +59,4 @@ Nakon korektivne migracije performance advisor više ne prijavljuje neindeksiran
 Prijava Employee korisnika ostaje preko ID-a, kao u postojećem poslovnom modelu. Ona ne potvrđuje identitet lozinkom. Lozinke drugih uloga ostaju obavezne, a pokušaji prijave su ograničeni u bazi.
 
 Upute za objavu i varijable su u `README.md` i `.env.example`. Tajne vrijednosti, node_modules i build izlaz nisu uključeni u paket.
+

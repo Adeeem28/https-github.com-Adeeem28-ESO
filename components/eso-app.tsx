@@ -1,239 +1,1033 @@
 "use client";
-import {ChangeEvent,FormEvent,useEffect,useRef,useState} from "react";
-import {AlertCircle,Bell,CalendarClock,Camera,CheckCircle2,ChevronRight,ClipboardList,Database,Download,FileSpreadsheet,FileText,Home,Image as ImageIcon,KeyRound,LoaderCircle,LogOut,MapPin,Menu,Plus,RefreshCw,Search,ShieldAlert,ShieldCheck,Target,Trash2,Upload,Users,Wrench,X,Trophy,Star,MessageSquare,Sun,Moon} from "lucide-react";
-import type {AppNotification,ClosureRates,Department,ESOReport,Location,Plant,Role,Urgency,User,VoEReport} from "@/types";
-import {ReportEntry,ReportWorkspace,TaskWorkspace} from "@/components/eso-workflow";
-import {HuntView} from "@/components/eso-hunt";
-import {fiscalYearInfo,inCurrentFY,localParts} from '@/lib/fiscal-year';
-import {AutoTranslator,LanguageControl} from "@/components/i18n";
-type View="dashboard"|"report"|"my-history"|"all-reports"|"maintenance"|"employees"|"departments"|"locations"|"plants"|"exports"|"voe-submit"|"voe-history"|"voe-all"|"hunt";
-type MonthlyTrackingPoint={month:number;label:string;reported:number;resolved:number};
-type ResolverStat={id:string;name:string;employeeId:string;department:string;role:string;resolvedYtd:number;resolvedThisMonth:number};
-type ReporterStat={id:string;name:string;employeeId:string;department:string;role:string;reportedYtd:number;reportedThisMonth:number};
-type TrackingData={year:number;currentMonth:number;monthly:MonthlyTrackingPoint[];reporterLeaderboard:ReporterStat[];resolverLeaderboard:ResolverStat[];closureRates?:ClosureRates};
-const canAdmin=(r?:Role)=>r==="Admin"||r==="Super Admin";
-const canMaintain=(r?:Role)=>r==="Maintenance"||r==="Supervisor"||r==="Management"||canAdmin(r);
-const canViewAll=(r?:Role)=>r==="Management"||canAdmin(r);
-async function json(url:string,init?:RequestInit){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Request failed");return d}
-export default function ESOApp({companyCode}:{companyCode?:string}={}){
- const[currentUser,setCurrentUser]=useState<User|null>(null),[users,setUsers]=useState<User[]>([]),[reports,setReports]=useState<ESOReport[]>([]),[topEmployeeYtd,setTopEmployeeYtd]=useState<{id:string,name:string,employeeId:string,count:number}|null>(null),[tracking,setTracking]=useState<TrackingData|null>(null),[departments,setDepartments]=useState<Department[]>([]),[locations,setLocations]=useState<Location[]>([]),[plants,setPlants]=useState<Plant[]>([]),[corporatePlants,setCorporatePlants]=useState<any[]>([]),[view,setView]=useState<View>("dashboard"),[selected,setSelected]=useState<ESOReport|null>(null),[passwordOpen,setPasswordOpen]=useState(false),[mobileNav,setMobileNav]=useState(false),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[notifications,setNotifications]=useState<AppNotification[]>([]),[notificationsOpen,setNotificationsOpen]=useState(false),[voeReports,setVoeReports]=useState<VoEReport[]>([]),[theme,setTheme]=useState<'light'|'dark'>('light');
- const loadVoe=async()=>{try{const d=await json('/api/voe');setVoeReports(d.reports||[])}catch{setVoeReports([])}};
- const loadNotifications=async()=>{try{const d=await json('/api/notifications');setNotifications(d.notifications||[])}catch{setNotifications([])}};
- const load=async()=>{try{const d=await json('/api/data');setCurrentUser(d.currentUser);setUsers(d.users);setReports(d.reports);setSelected(previous=>previous?(d.reports.find((r:ESOReport)=>r.id===previous.id)||null):null);setTopEmployeeYtd(d.topEmployeeYtd||null);setTracking(d.tracking||null);setDepartments(d.departments);setLocations(d.locations);setPlants(d.plants||[]);setCorporatePlants(d.corporatePlants||[]);void loadNotifications();void loadVoe();return null}catch(e:any){console.error('ESO data load failed after login:',e);setCurrentUser(null);setNotifications([]);return e?.message||'Could not load ESO data. Check the server logs.'}finally{setLoading(false)}};
- const refresh=async()=>{if(refreshing)return;setRefreshing(true);try{const error=await load();if(error)throw new Error(error)}catch(e:any){alert(e.message||'Could not refresh ESO data.')}finally{setRefreshing(false)}};
- useEffect(()=>{load()},[]);
- useEffect(()=>{const saved=window.localStorage.getItem('eso-theme');const next=saved==='dark'?'dark':'light';setTheme(next);document.documentElement.dataset.theme=next},[]);
- useEffect(()=>{document.documentElement.dataset.theme=theme;window.localStorage.setItem('eso-theme',theme)},[theme]);
- useEffect(()=>{
-  if(!mobileNav)return;
-  const y=window.scrollY;
-  const body=document.body;
-  body.classList.add('nav-open');
-  body.style.position='fixed';body.style.top=`-${y}px`;body.style.left='0';body.style.right='0';body.style.width='100%';
-  return()=>{body.classList.remove('nav-open');body.style.position='';body.style.top='';body.style.left='';body.style.right='';body.style.width='';window.scrollTo(0,y)}
- },[mobileNav]);
- if(loading)return <div className="loading">Loading ESO Management System…</div>;
- if(!currentUser)return <Login companyCode={companyCode} onLogin={async()=>{const dataError=await load();if(dataError)throw new Error(dataError);setView("dashboard")}}/>;
- const go=(v:View)=>{setView(v);setMobileNav(false)};
- const logout=async()=>{await fetch('/api/logout',{method:'POST'});setCurrentUser(null);setNotifications([])};
- const unread=notifications.filter(n=>!n.isRead).length;
- return <><AutoTranslator/><div className="app-shell">
-  <header className="topbar"><div className="brand"><span className="brand-icon"><img src="/eso-shield.png" alt="ESO safety shield"/></span><span className="brand-copy"><b className="brand-mark">ESO</b><small>Environment &amp; Safety Opportunity</small></span></div><div className="top-user">{currentUser.companyName&&<><b>{currentUser.companyName}</b><span>•</span></>}{currentUser.plantName&&<><b>{currentUser.plantName}</b><span>•</span></>}{currentUser.name}<span>•</span>ID {currentUser.employeeId}</div><button className="mobile-menu" onClick={()=>setMobileNav(!mobileNav)}><Menu size={22}/></button></header>
-  <aside className={`sidebar ${mobileNav?'open':''}`}>
-   <div className="profile-card"><div className="avatar">{currentUser.name.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div><strong>{currentUser.name}</strong><span>{currentUser.role}</span><small>{currentUser.plantName?`${currentUser.plantName} • `:""}{currentUser.department}</small></div></div>
-   <nav>
-    <Nav icon={<Home size={17}/>} label="Dashboard" active={view==='dashboard'} onClick={()=>go('dashboard')}/>
-    <Nav icon={<Plus size={17}/>} label="Report ESO" active={view==='report'} onClick={()=>go('report')}/>
-    <Nav icon={<ClipboardList size={17}/>} label="My ESO History" active={view==='my-history'} onClick={()=>go('my-history')}/>
-    {canMaintain(currentUser.role)&&<Nav icon={<Wrench size={17}/>} label={canAdmin(currentUser.role)?"Corrective Action Tasks":"My Tasks"} active={view==='maintenance'} onClick={()=>go('maintenance')}/>} 
-    {canViewAll(currentUser.role)&&<><div className="nav-section">ESO</div><Nav icon={<FileText size={17}/>} label="All ESO Reports" active={view==='all-reports'} onClick={()=>go('all-reports')}/><Nav icon={<Download size={17}/>} label="Data & Reports" active={view==='exports'} onClick={()=>go('exports')}/></>}
-    <div className="nav-section hunt-section">ESO HUNT</div><Nav icon={<Trophy size={17}/>} label="ESO Hunt" active={view==='hunt'} onClick={()=>go('hunt')}/>
-    <div className="nav-section voe-section">VOICE OF EMPLOYEE</div><Nav icon={<MessageSquare size={17}/>} label="Submit Voice" active={view==='voe-submit'} onClick={()=>go('voe-submit')}/><Nav icon={<ClipboardList size={17}/>} label="My Voice History" active={view==='voe-history'} onClick={()=>go('voe-history')}/>{canViewAll(currentUser.role)&&<Nav icon={<MessageSquare size={17}/>} label="Voice of Employee" active={view==='voe-all'} onClick={()=>go('voe-all')}/>}
-    {canAdmin(currentUser.role)&&<><div className="nav-section">ADMINISTRATION</div>{currentUser.role==='Super Admin'&&<Nav icon={<Database size={17}/>} label="Plants" active={view==='plants'} onClick={()=>go('plants')}/>}<Nav icon={<Users size={17}/>} label="Employee Tracker" active={view==='employees'} onClick={()=>go('employees')}/><Nav icon={<Database size={17}/>} label="Departments" active={view==='departments'} onClick={()=>go('departments')}/><Nav icon={<MapPin size={17}/>} label="Locations" active={view==='locations'} onClick={()=>go('locations')}/></>}
-   </nav>
-   <div className="sidebar-bottom"><LanguageControl/><ThemeControl theme={theme} onToggle={()=>setTheme(theme==='dark'?'light':'dark')}/><PushControl/><button onClick={()=>{setNotificationsOpen(true);loadNotifications()}}><Bell size={17}/> Notifications {unread>0&&<span className="notification-count">{unread}</span>}</button>{currentUser.role!=='Employee'&&<button onClick={()=>setPasswordOpen(true)}><KeyRound size={17}/> Change password</button>}<button onClick={logout}><LogOut size={17}/> Log out</button></div>
-  </aside>
-  <main className="content">
-   {view==='dashboard'&&<Dashboard user={currentUser} users={users} reports={reports} topEmployeeYtd={topEmployeeYtd} tracking={tracking} corporatePlants={corporatePlants} onReport={()=>go('report')} onRefresh={refresh} refreshing={refreshing} onOpen={setSelected}/>} 
-   {view==='hunt'&&<HuntView currentUser={currentUser} users={users} plants={plants} locations={locations} reports={reports} onOpen={setSelected}/>} 
-   {view==='report'&&<ReportEntry user={currentUser} locations={locations.filter(l=>l.active!==false)} onDone={async()=>{await load();go('my-history')}}/>}
-   {view==='my-history'&&<ReportsTable title="My ESO History" reports={reports.filter(r=>r.reporterId===currentUser.id)} users={users} onOpen={setSelected}/>}
-   {view==='all-reports'&&<ReportsTable title="All ESO Submissions" reports={reports} users={users} onOpen={setSelected} adminFilters/>}
-   {view==='maintenance'&&<TaskWorkspace currentUser={currentUser} reports={reports} users={users} onOpen={setSelected} reload={load}/>}
-   {view==='employees'&&<Employees currentUser={currentUser} users={users} reports={reports} departments={departments} plants={plants} reload={load}/>}
-   {view==='departments'&&<Departments currentUser={currentUser} departments={departments} users={users} reports={reports} plants={plants} reload={load} onOpen={setSelected}/>}
-   {view==='locations'&&<Locations currentUser={currentUser} locations={locations} departments={departments} plants={plants} reload={load}/>}
-   {view==='plants'&&<Plants currentUser={currentUser} plants={plants} corporatePlants={corporatePlants} reload={load}/>}
-   {view==='exports'&&<Exports departments={departments} closureRates={tracking?.closureRates}/>} 
-   {view==='voe-submit'&&<VoESubmit onDone={async()=>{await loadVoe();go('voe-history')}}/>}
-   {view==='voe-history'&&<VoEList title="My Voice History" reports={voeReports.filter(v=>v.reporterId===currentUser.id)} canManage={false} reload={loadVoe}/>}
-   {view==='voe-all'&&canViewAll(currentUser.role)&&<VoEList title="Voice of Employee" reports={voeReports} canManage reload={loadVoe}/>}
-  </main>
-  {!mobileNav&&<MobileQuickNav user={currentUser} view={view} go={go}/>}
-  {selected&&<ReportModal report={selected} users={users} locations={locations} currentUser={currentUser} onChanged={load} onClose={()=>setSelected(null)}/>}
-  {passwordOpen&&<PasswordModal onClose={()=>setPasswordOpen(false)}/>}
-  {notificationsOpen&&<NotificationsPanel notifications={notifications} reports={reports} onClose={()=>setNotificationsOpen(false)} onOpenReport={(id)=>{const r=reports.find(x=>x.id===id);if(r)setSelected(r);setNotificationsOpen(false)}} reload={loadNotifications}/>}
- </div></>
+import LocalizedDate from "./localized-date";
+import dynamic from "next/dynamic";
+import { RefreshCw } from "lucide-react";
+import { RequestError } from "./eso-shared";
+import {
+  CheckCheck as ActionCheckCheck,
+  X as ActionX,
+  KeyRound as ActionKeyRound,
+} from "lucide-react";
+import { VoESubmit, VoEList } from "@/components/voe";
+import Login, { PasswordInput } from "@/components/login";
+import MobileQuickNav from "./mobile-quick-nav";
+export { default as MobileQuickNav } from "./mobile-quick-nav";
+import SiteFooter from "@/components/site-footer";
+import {resetPageScroll} from "./page-scroll-reset";
+import BrandWordmark from "@/components/brand-wordmark";
+import LoadingStatus from "@/components/loading-status";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  Bell,
+  ChevronRight,
+  ClipboardList,
+  Database,
+  Download,
+  FileText,
+  Home,
+  KeyRound,
+  LogOut,
+  MapPin,
+  Menu,
+  Plus,
+  Users,
+  Wrench,
+  X,
+  Trophy,
+  MessageSquare,
+  Sun,
+  Moon,
+} from "lucide-react";
+import type {
+  AppNotification,
+  Department,
+  ESOReport,
+  Location,
+  Plant,
+  User,
+  VoEReport,
+} from "@/types";
+import { ReportEntry, TaskWorkspace } from "@/components/eso-workflow";
+import { LanguageControl } from "@/components/i18n";
+import { json, Title, canAdmin, canMaintain, canViewAll } from "./eso-shared";
+import { Dashboard, TrackingData, DashboardSummary } from "./eso-dashboard";
+import { ReportsTable, ReportModal } from "./eso-reports";
+const loading = () => <LoadingStatus />;
+const Employees = dynamic(
+  () => import("./eso-administration").then((m) => m.Employees),
+  { loading },
+);
+const Departments = dynamic(
+  () => import("./eso-administration").then((m) => m.Departments),
+  { loading },
+);
+const Locations = dynamic(
+  () => import("./eso-administration").then((m) => m.Locations),
+  { loading },
+);
+const Plants = dynamic(
+  () => import("./eso-administration").then((m) => m.Plants),
+  { loading },
+);
+const Exports = dynamic(() => import("./eso-exports").then((m) => m.Exports), {
+  loading,
+});
+const HuntView = dynamic(() => import("./eso-hunt").then((m) => m.HuntView), {
+  loading,
+});
+
+export default function ESOApp({ companyCode }: { companyCode?: string } = {}) {
+  const sidebarRef = useRef<HTMLElement>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null),
+    [users, setUsers] = useState<User[]>([]),
+    [reports, setReports] = useState<ESOReport[]>([]),
+    [topEmployeeYtd, setTopEmployeeYtd] = useState<{
+      id: string;
+      name: string;
+      employeeId: string;
+      count: number;
+    } | null>(null),
+    [tracking, setTracking] = useState<TrackingData | null>(null),
+    [departments, setDepartments] = useState<Department[]>([]),
+    [locations, setLocations] = useState<Location[]>([]),
+    [plants, setPlants] = useState<Plant[]>([]),
+    [corporatePlants, setCorporatePlants] = useState<any[]>([]),
+    [view, setView] = useState<View>("dashboard"),
+    [selected, setSelected] = useState<ESOReport | null>(null),
+    [passwordOpen, setPasswordOpen] = useState(false),
+    [mobileNav, setMobileNav] = useState(false),
+    [loading, setLoading] = useState(true),
+    [refreshing, setRefreshing] = useState(false),
+    [notifications, setNotifications] = useState<AppNotification[]>([]),
+    [notificationsOpen, setNotificationsOpen] = useState(false),
+    [voeReports, setVoeReports] = useState<VoEReport[]>([]),
+    [theme, setTheme] = useState<"light" | "dark">("light");
+  const [voeLoading, setVoeLoading] = useState(false),
+    [voeError, setVoeError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [dashboardSummary, setDashboardSummary] =
+    useState<DashboardSummary | null>(null);
+  const [history, setHistory] = useState<ESOReport[] | null>(null),
+    [historyError, setHistoryError] = useState("");
+  const historyCache = useRef<ESOReport[] | null>(null),
+    historyFlight = useRef<Promise<ESOReport[]> | null>(null),
+    historyEpoch = useRef(0);
+  const needsHistory = [
+    "maintenance",
+    "employees",
+    "departments",
+    "hunt",
+  ].includes(view);
+  const invalidateHistory = () => {
+    historyEpoch.current++;
+    historyCache.current = null;
+    historyFlight.current = null;
+    setHistory(null);
+    setHistoryError("");
+  };
+  const getHistory = (): Promise<ESOReport[]> => {
+    if (historyCache.current) return Promise.resolve(historyCache.current);
+    if (historyFlight.current) return historyFlight.current;
+    const epoch = historyEpoch.current;
+    const flight = json("/api/reports/history")
+      .then((d) => {
+        if (epoch !== historyEpoch.current)
+          throw new Error("Data changed. Please retry.");
+        historyCache.current = d.reports;
+        setHistory(d.reports);
+        setHistoryError("");
+        return d.reports as ESOReport[];
+      })
+      .finally(() => {
+        if (historyFlight.current === flight) historyFlight.current = null;
+      });
+    historyFlight.current = flight;
+    return flight;
+  };
+  const loadHistoryView = () => {
+    setHistoryError("");
+    void getHistory().catch((e) => setHistoryError(e.message));
+  };
+  useEffect(() => {
+    if (currentUser && needsHistory) loadHistoryView();
+  }, [view, reports, currentUser?.id]);
+  const openReportById = async (id: string) => {
+    try {
+      const data = await json(
+        "/api/reports/history?id=" + encodeURIComponent(id),
+      );
+      if (data.reports[0]) setSelected(data.reports[0]);
+      else setLoadError("ESO not found");
+    } catch (e) {
+      setLoadError((e as Error).message);
+    }
+  };
+  const voeRequest = useRef(0);
+  const loadVoe = async () => {
+    const request = ++voeRequest.current;
+    setVoeLoading(true);
+    setVoeError("");
+    try {
+      const d = await json("/api/voe");
+      if (request === voeRequest.current) setVoeReports(d.reports || []);
+    } catch (e) {
+      if (request === voeRequest.current) setVoeError((e as Error).message);
+    } finally {
+      if (request === voeRequest.current) setVoeLoading(false);
+    }
+  };
+  const loadNotifications = async () => {
+    try {
+      const d = await json("/api/notifications");
+      setNotifications(d.notifications || []);
+    } catch {
+      setNotifications([]);
+    }
+  };
+  const load = async () => {
+    setLoadError("");
+    try {
+      const d = await json("/api/data");
+      invalidateHistory();
+      setDashboardSummary(d.dashboard || null);
+      setCurrentUser(d.currentUser);
+      setUsers(d.users);
+      setReports(d.reports);
+      setSelected((previous) =>
+        previous
+          ? d.reports.find((r: ESOReport) => r.id === previous.id) || previous
+          : null,
+      );
+      setTopEmployeeYtd(d.topEmployeeYtd || null);
+      setTracking(d.tracking || null);
+      setDepartments(d.departments);
+      setLocations(d.locations);
+      setPlants(d.plants || []);
+      setCorporatePlants(d.corporatePlants || []);
+      if (selected) {
+        const detail = await json(
+          "/api/reports/history?id=" + encodeURIComponent(selected.id),
+        );
+        setSelected((previous) =>
+          previous?.id === selected.id ? detail.reports[0] || null : previous,
+        );
+      }
+      void loadNotifications();
+      if (view === "voe-history" || view === "voe-all") void loadVoe();
+      return null;
+    } catch (e: any) {
+      if (e instanceof RequestError && [401, 403].includes(e.status)) {
+        invalidateHistory();
+        setSelected(null);
+        setCurrentUser(null);
+        setNotifications([]);
+      } else {
+        console.error("ESO data load failed:", e);
+        setLoadError("Could not load data. Please retry.");
+      }
+      return e?.message || "Could not load ESO data. Check the server logs.";
+    } finally {
+      setLoading(false);
+    }
+  };
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const error = await load();
+      if (error) throw new Error(error);
+    } catch (e: any) {
+      alert(e.message || "Could not refresh ESO data.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  useEffect(() => {
+    const saved = window.localStorage.getItem("eso-theme");
+    const next = saved === "dark" ? "dark" : "light";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("eso-theme", theme);
+  }, [theme]);
+  useEffect(() => {
+    if (!mobileNav) return;
+    if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
+    const desktop = window.matchMedia("(min-width:1301px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMobileNav(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    const y = window.scrollY;
+    const body = document.body;
+    body.classList.add("nav-open");
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    return () => {
+      desktop.removeEventListener("change", closeOnDesktop);
+      body.classList.remove("nav-open");
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.width = "";
+      window.scrollTo(0, y);
+    };
+  }, [mobileNav]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(resetPageScroll);
+    return () => cancelAnimationFrame(frame);
+  }, [view, loading, currentUser?.id]);
+  useEffect(() => {
+    if (!loading) window.dispatchEvent(new CustomEvent('eso-auth-ready', {detail:{authenticated:Boolean(currentUser)}}));
+  }, [loading, currentUser?.id]);
+  if (loading) return <LoadingStatus fullScreen />;
+  if (!currentUser && loadError)
+    return (
+      <div className="login-page">
+        <section className="login-card" role="alert">
+          <h1>Connection problem</h1>
+          <p>{loadError}</p>
+          <button
+            className="primary-btn"
+            onClick={() => {
+              setLoading(true);
+              void load();
+            }}
+          >
+            <RefreshCw size={18} />
+            RETRY
+          </button>
+        </section>
+      </div>
+    );
+  if (!currentUser)
+    return (
+      <Login
+        companyCode={companyCode}
+        onLogin={async () => {
+          const dataError = await load();
+          if (dataError) throw new Error(dataError);
+          setView("dashboard");
+        }}
+      />
+    );
+  const go = (v: View) => {
+    requestAnimationFrame(resetPageScroll);
+    setView(v);
+    setMobileNav(false);
+    if (v === "voe-history" || v === "voe-all") void loadVoe();
+  };
+  const logout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    invalidateHistory();
+    setSelected(null);
+    setCurrentUser(null);
+    setNotifications([]);
+  };
+  const unread = notifications.filter((n) => !n.isRead).length;
+  return (
+    <>
+      <div className="app-shell">
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-icon">
+              <img src="/eso-shield.png" alt="ESO safety shield" />
+            </span>
+            <BrandWordmark />
+          </div>
+          <div className="top-user">
+            {currentUser.companyName && (
+              <>
+                <b data-no-translate>{currentUser.companyName}</b>
+                <span>•</span>
+              </>
+            )}
+            {currentUser.plantName && (
+              <>
+                <b data-no-translate>{currentUser.plantName}</b>
+                <span>•</span>
+              </>
+            )}
+            <span data-no-translate>{currentUser.name}</span>
+            <span>•</span>ID {currentUser.employeeId}
+          </div>
+          <button
+            className="mobile-menu"
+            onClick={() => setMobileNav(!mobileNav)}
+          >
+            <Menu size={22} />
+          </button>
+        </header>
+        <aside ref={sidebarRef} className={`sidebar ${mobileNav ? "open" : ""}`}>
+          <div className="profile-card">
+            <div className="avatar">
+              {currentUser.name
+                .split(" ")
+                .map((x) => x[0])
+                .slice(0, 2)
+                .join("")}
+            </div>
+            <div>
+              <strong data-no-translate>{currentUser.name}</strong>
+              <span>{currentUser.role}</span>
+              <small>
+                {currentUser.plantName ? `${currentUser.plantName} • ` : ""}
+                {currentUser.department}
+              </small>
+            </div>
+          </div>
+          <nav>
+            <Nav
+              icon={<Home size={17} />}
+              label="Dashboard"
+              active={view === "dashboard"}
+              onClick={() => go("dashboard")}
+            />
+            <Nav
+              icon={<Plus size={17} />}
+              label="Report ESO"
+              active={view === "report"}
+              onClick={() => go("report")}
+            />
+            <Nav
+              icon={<ClipboardList size={17} />}
+              label="My ESO History"
+              active={view === "my-history"}
+              onClick={() => go("my-history")}
+            />
+            {canMaintain(currentUser.role) && (
+              <Nav
+                icon={<Wrench size={17} />}
+                label={
+                  canAdmin(currentUser.role)
+                    ? "Corrective Action Tasks"
+                    : "My Tasks"
+                }
+                active={view === "maintenance"}
+                onClick={() => go("maintenance")}
+              />
+            )}
+            {canViewAll(currentUser.role) && (
+              <>
+                <div className="nav-section">ESO</div>
+                <Nav
+                  icon={<FileText size={17} />}
+                  label="All ESO Reports"
+                  active={view === "all-reports"}
+                  onClick={() => go("all-reports")}
+                />
+                <Nav
+                  icon={<Download size={17} />}
+                  label="Data & Reports"
+                  active={view === "exports"}
+                  onClick={() => go("exports")}
+                />
+              </>
+            )}
+            <div className="nav-section hunt-section">ESO HUNT</div>
+            <Nav
+              icon={<Trophy size={17} />}
+              label="ESO Hunt"
+              active={view === "hunt"}
+              onClick={() => go("hunt")}
+            />
+            <div className="nav-section voe-section">VOICE OF EMPLOYEE</div>
+            <Nav
+              icon={<MessageSquare size={17} />}
+              label="Submit Voice"
+              active={view === "voe-submit"}
+              onClick={() => go("voe-submit")}
+            />
+            <Nav
+              icon={<ClipboardList size={17} />}
+              label="My Voice History"
+              active={view === "voe-history"}
+              onClick={() => go("voe-history")}
+            />
+            {canViewAll(currentUser.role) && (
+              <Nav
+                icon={<MessageSquare size={17} />}
+                label="Voice of Employee"
+                active={view === "voe-all"}
+                onClick={() => go("voe-all")}
+              />
+            )}
+            {canAdmin(currentUser.role) && (
+              <>
+                <div className="nav-section">ADMINISTRATION</div>
+                {currentUser.role === "Super Admin" && (
+                  <Nav
+                    icon={<Database size={17} />}
+                    label="Plants"
+                    active={view === "plants"}
+                    onClick={() => go("plants")}
+                  />
+                )}
+                <Nav
+                  icon={<Users size={17} />}
+                  label="Employee Tracker"
+                  active={view === "employees"}
+                  onClick={() => go("employees")}
+                />
+                <Nav
+                  icon={<Database size={17} />}
+                  label="Departments"
+                  active={view === "departments"}
+                  onClick={() => go("departments")}
+                />
+                <Nav
+                  icon={<MapPin size={17} />}
+                  label="Locations"
+                  active={view === "locations"}
+                  onClick={() => go("locations")}
+                />
+              </>
+            )}
+          </nav>
+          <div className="sidebar-bottom">
+            <LanguageControl />
+            <ThemeControl
+              theme={theme}
+              onToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+            />
+            <PushControl />
+            <button
+              onClick={() => {
+                setNotificationsOpen(true);
+                loadNotifications();
+              }}
+            >
+              <Bell size={17} /> Notifications{" "}
+              {unread > 0 && (
+                <span className="notification-count">{unread}</span>
+              )}
+            </button>
+            {
+              <button onClick={() => setPasswordOpen(true)}>
+                <KeyRound size={17} /> Change password
+              </button>
+            }
+            <button onClick={logout}>
+              <LogOut size={17} /> Log out
+            </button>
+          </div>
+        </aside>
+        <main className="content">
+          {loadError && (
+            <div className="form-error" role="alert">
+              {loadError}
+            </div>
+          )}
+          {needsHistory &&
+            history === null &&
+            (historyError ? (
+              <div className="form-error" role="alert">
+                {historyError}
+                <button className="outline-btn" onClick={loadHistoryView}>
+                  <RefreshCw size={16} />
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <LoadingStatus label="Loading report history…" />
+            ))}
+          {view === "dashboard" && (
+            <Dashboard
+              user={currentUser}
+              users={users}
+              reports={reports}
+              summary={dashboardSummary}
+              getHistory={getHistory}
+              topEmployeeYtd={topEmployeeYtd}
+              tracking={tracking}
+              corporatePlants={corporatePlants}
+              onReport={() => go("report")}
+              onRefresh={refresh}
+              refreshing={refreshing}
+              onOpen={setSelected}
+            />
+          )}
+          {view === "hunt" && history !== null && (
+            <HuntView
+              currentUser={currentUser}
+              users={users}
+              plants={plants}
+              locations={locations}
+              reports={history!}
+              onOpen={setSelected}
+            />
+          )}
+          {view === "report" && (
+            <div className="page report-entry-page">
+              <Title
+                title="Report ESO"
+                subtitle={`${currentUser.name} • Environmental & Safety Opportunity`}
+              />
+              <ReportEntry
+                user={currentUser}
+                locations={locations.filter((l) => l.active !== false)}
+                onDone={async () => {
+                  await load();
+                  go("my-history");
+                }}
+              />
+            </div>
+          )}
+          {view === "my-history" && (
+            <div className="page report-list-page">
+              <Title title="My ESO History" />
+              <ReportsTable
+                title="My ESO History"
+                serverPaging
+                mineOnly
+                locations={locations}
+                reports={reports.filter((r) => r.reporterId === currentUser.id)}
+                users={users}
+                onOpen={setSelected}
+              />
+            </div>
+          )}
+          {view === "all-reports" && (
+            <div className="page report-list-page">
+              <Title title="All ESO Submissions" />
+              <ReportsTable
+                mobileTable
+                title="All ESO Submissions"
+                serverPaging
+                locations={locations}
+                reports={reports}
+                users={users}
+                onOpen={setSelected}
+                adminFilters
+              />
+            </div>
+          )}
+          {view === "maintenance" && history !== null && (
+            <TaskWorkspace
+              currentUser={currentUser}
+              reports={history!}
+              users={users}
+              onOpen={setSelected}
+              reload={load}
+            />
+          )}
+          {view === "employees" && history !== null && (
+            <Employees
+              currentUser={currentUser}
+              users={users}
+              reports={history!}
+              departments={departments}
+              plants={plants}
+              reload={load}
+            />
+          )}
+          {view === "departments" && history !== null && (
+            <Departments
+              currentUser={currentUser}
+              departments={departments}
+              users={users}
+              reports={history!}
+              plants={plants}
+              reload={load}
+              onOpen={setSelected}
+            />
+          )}
+          {view === "locations" && (
+            <Locations
+              currentUser={currentUser}
+              locations={locations}
+              departments={departments}
+              plants={plants}
+              reload={load}
+            />
+          )}
+          {view === "plants" && (
+            <Plants
+              currentUser={currentUser}
+              plants={plants}
+              corporatePlants={corporatePlants}
+              reload={load}
+            />
+          )}
+          {view === "exports" && (
+            <Exports
+              departments={departments}
+              closureRates={tracking?.closureRates}
+            />
+          )}
+          {view === "voe-submit" && (
+            <VoESubmit
+              onDone={async () => {
+                setView("voe-history");
+                setMobileNav(false);
+                await loadVoe();
+              }}
+            />
+          )}
+          {view === "voe-history" && (
+            <VoEList
+              title="My Voice History"
+              reports={voeReports.filter(
+                (v) => v.reporterId === currentUser.id,
+              )}
+              canManage={false}
+              reload={loadVoe}
+              loading={voeLoading}
+              error={voeError}
+            />
+          )}
+          {view === "voe-all" && canViewAll(currentUser.role) && (
+            <VoEList
+              title="Voice of Employee"
+              reports={voeReports}
+              canManage
+              reload={loadVoe}
+              loading={voeLoading}
+              error={voeError}
+            />
+          )}
+          <SiteFooter />
+        </main>
+        {!mobileNav && (
+          <MobileQuickNav user={currentUser} view={view} go={go} />
+        )}
+        {selected && (
+          <ReportModal
+            report={selected}
+            users={users}
+            locations={locations}
+            currentUser={currentUser}
+            onChanged={load}
+            onClose={() => setSelected(null)}
+          />
+        )}
+        {passwordOpen && (
+          <PasswordModal onClose={() => setPasswordOpen(false)} />
+        )}
+        {notificationsOpen && (
+          <NotificationsPanel
+            notifications={notifications}
+            reports={reports}
+            onClose={() => setNotificationsOpen(false)}
+            onOpenReport={(id) => {
+              void openReportById(id);
+              setNotificationsOpen(false);
+            }}
+            reload={loadNotifications}
+          />
+        )}
+      </div>
+    </>
+  );
 }
-function MobileQuickNav({user,view,go}:{user:User,view:View,go:(v:View)=>void}){const items:{view:View,label:string,icon:React.ReactNode}[]=[{view:'dashboard',label:'Home',icon:<Home size={19}/>},{view:'my-history',label:'My ESO',icon:<ClipboardList size={19}/>}];if(canMaintain(user.role))items.push({view:'maintenance',label:'Actions',icon:<Wrench size={19}/>});if(canAdmin(user.role))items.push({view:'employees',label:'Tracker',icon:<Users size={19}/>});items.push({view:'report',label:'Report',icon:<Plus size={20}/>});return <nav className="mobile-quick-nav" aria-label="Quick navigation">{items.map(i=><button key={i.view} className={view===i.view?'active':''} onClick={()=>go(i.view)}>{i.icon}<span>{i.label}</span></button>)}</nav>}
 
-
-function Nav({icon,label,active,onClick}:{icon:React.ReactNode,label:string,active:boolean,onClick:()=>void}){return <button className={`nav-btn ${active?'active':''}`} onClick={onClick}>{icon}<span>{label}</span><ChevronRight size={15}/></button>}
-
-function ThemeControl({theme,onToggle}:{theme:'light'|'dark';onToggle:()=>void}){return <button className="theme-control" onClick={onToggle} aria-label={`Switch to ${theme==='dark'?'light':'dark'} mode`}><span>{theme==='dark'?<Moon size={17}/>:<Sun size={17}/>}</span><span>{theme==='dark'?'Dark mode':'Light mode'}</span><i className={`theme-switch ${theme}`}><b/></i></button>}
-
-function urlBase64ToUint8Array(base64String:string){const padding='='.repeat((4-base64String.length%4)%4),base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
-function PushControl(){const[supported,setSupported]=useState(false),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false);useEffect(()=>{setSupported('serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window);navigator.serviceWorker?.ready.then(async r=>setEnabled(!!(await r.pushManager.getSubscription()))).catch(()=>{})},[]);const toggle=async()=>{if(!supported||busy)return;setBusy(true);try{const reg=await navigator.serviceWorker.ready,current=await reg.pushManager.getSubscription();if(current){await fetch('/api/push/subscribe',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:current.endpoint})});await current.unsubscribe();setEnabled(false)}else{const k=await json('/api/push/public-key');if(!k.publicKey)throw new Error('Push is not configured on the server.');const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Notifications were not allowed on this device.');const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(k.publicKey)});await json('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub.toJSON()})});setEnabled(true)}}catch(e:any){alert(e.message||'Could not enable push notifications.')}finally{setBusy(false)}};if(!supported)return null;return <button onClick={toggle} disabled={busy}><Bell size={17}/>{busy?'Please wait…':enabled?'Push notifications ON':'Enable push notifications'}</button>}
-
-
-function PasswordModal({onClose}:{onClose:()=>void}){const[currentPassword,setCurrentPassword]=useState(''),[newPassword,setNewPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[error,setError]=useState(''),[done,setDone]=useState(false),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setError('');if(newPassword!==confirmPassword){setError('New passwords do not match.');return}setBusy(true);try{await json('/api/profile/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword,newPassword})});setDone(true)}catch(e:any){setError(e.message)}finally{setBusy(false)}};return <div className="modal-backdrop"><form className="small-modal" onSubmit={submit}><h3>Change Password</h3>{done?<><div className="success-box">Password changed successfully.</div><button type="button" className="primary-btn" onClick={onClose}>Done</button></>:<><label>Current Password<input type="password" required value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)}/></label><label>New Password<input type="password" required minLength={8} value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label><label>Confirm New Password<input type="password" required minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></label>{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={onClose}>Cancel</button><button className="primary-btn" disabled={busy}>{busy?'SAVING…':'CHANGE PASSWORD'}</button></div></>}</form></div>}
-function Login({onLogin,companyCode}:{onLogin:()=>Promise<void>,companyCode?:string}){const[id,setId]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await json('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({employeeId:id,password,companyCode:companyCode||null})});await onLogin()}catch(e:any){setError(e.message)}finally{setBusy(false)}};return <><AutoTranslator/><div className="login-page"><div className="login-language"><LanguageControl/></div><div className="login-brand"><span className="login-logo"><img src="/eso-shield.png" alt="ESO safety shield"/></span><div><span>ESO</span><small>Environment &amp; Safety Opportunity</small></div></div><form className="login-card" onSubmit={submit}><div className="login-icon"><ShieldCheck size={30}/></div><h1>Welcome</h1><p>{companyCode?<>Company: <b>{companyCode}</b> • Enter your Employee ID.</>:<>Enter your Employee ID to continue.</>}</p><label>Employee ID<input autoFocus required value={id} onChange={e=>setId(e.target.value)} placeholder="e.g. 10001"/></label><label>Password <small>(privileged roles only)</small><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Leave blank for Employee"/></label>{error&&<div className="form-error">{error}</div>}<button className="primary-btn" disabled={busy}>{busy?'SIGNING IN…':'LOG IN'}</button><a className="owner-back-link" href="/owner">Platform Owner Console</a></form></div></>}
-function Title({title,subtitle}:{title:string,subtitle?:string}){return <div className="page-title"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div></div>}
-function Badge({text}:{text:string}){return <span className={`badge ${text.toLowerCase().replaceAll(' ','-')}`}>{text}</span>}
-function TopEmployeeCard({top,onClick}:{top:{id:string,name:string,employeeId:string,count:number}|null,onClick?:()=>void}){return <div className={`top-employee-card ${onClick?'clickable-kpi':''}`} role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' '))onClick()}}><div className="top-employee-icon"><Trophy size={26}/></div><div className="top-employee-copy"><span>EMPLOYEE WITH MOST ESO YTD</span><strong>{top?.name||'No submissions yet'}</strong>{top&&<em>ID {top.employeeId}</em>}</div><div className="top-employee-score"><b>{top?.count||0}</b><small>ESO YTD</small></div></div>}
-function TopResolverCard({top,onClick}:{top:ResolverStat|null,onClick?:()=>void}){return <div className={`top-employee-card top-resolver-card ${onClick?'clickable-kpi':''}`} role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' '))onClick()}}><div className="top-employee-icon top-resolver-icon"><Wrench size={26}/></div><div className="top-employee-copy"><span>TOP ESO RESOLVER YTD</span><strong>{top?.name||'No resolutions yet'}</strong>{top&&<em>{top.role}{top.employeeId?` • ID ${top.employeeId}`:''}</em>}</div><div className="top-employee-score"><b>{top?.resolvedYtd||0}</b><small>RESOLVED YTD</small></div></div>}
-function StatCard({label,value,color,icon,onClick}:{label:string,value:number,color:string,icon:React.ReactNode,onClick?:()=>void}){return <div className={`stat-card ${color} ${onClick?'clickable-kpi':''}`} role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' '))onClick()}}><div><span>{label}</span><strong>{value}</strong></div><div className="stat-icon">{icon}</div></div>}
-function Dashboard({user,users,reports,topEmployeeYtd,tracking,corporatePlants,onReport,onRefresh,refreshing,onOpen}:{user:User,users:User[],reports:ESOReport[],topEmployeeYtd:{id:string,name:string,employeeId:string,count:number}|null,tracking:TrackingData|null,corporatePlants:any[],onReport:()=>void,onRefresh:()=>Promise<void>,refreshing:boolean,onOpen:(r:ESOReport)=>void}){
- const[kpiView,setKpiView]=useState<{title:string;reports:ESOReport[]}|null>(null);
- const fy=fiscalYearInfo(),year=fy.label,yr=reports.filter(r=>inCurrentFY(r.createdAt));
- if(user.role==='Employee'){
-  const mine=yr.filter(r=>r.reporterId===user.id),pct=Math.min(100,Math.round(mine.length/user.annualTarget*100));
-  return <div className="page"><Title title="My ESO Dashboard" subtitle={`${user.name} • ${user.department}`}/>
-   <div className="employee-dashboard-row"><div className="employee-hero clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:`My ESO YTD — ${year}`,reports:mine})}><div><span>ANNUAL ESO TARGET</span><h2>{mine.length} <small>/ {user.annualTarget}</small></h2><div className="progress"><i style={{width:`${pct}%`}}/></div><p>{Math.max(0,user.annualTarget-mine.length)} reports remaining</p></div><button className="report-big" onClick={e=>{e.stopPropagation();onReport()}}><Plus size={24}/> REPORT ESO</button></div><TopEmployeeCard top={topEmployeeYtd}/></div>
-   <ReportsTable title="Recent submissions" reports={mine.slice(0,5)} users={users} onOpen={onOpen}/>{kpiView&&<KpiReportsModal title={kpiView.title} reports={kpiView.reports.map(item=>reports.find(r=>r.id===item.id)||item)} users={users} onOpen={onOpen} onClose={()=>setKpiView(null)}/>}</div>
- }
- const open=reports.filter(r=>r.status==='Open').length,inProgress=reports.filter(r=>r.status==='In Progress').length,completed=reports.filter(r=>r.status==='Completed').length,critical=reports.filter(r=>r.urgency==='Critical'&&r.status!=='Completed').length,overdue=reports.filter(r=>r.overdue).length,topResolver=tracking?.resolverLeaderboard[0]||null;
- return <div className="page">
-  <div className="dashboard-heading"><Title title="ESO Dashboard" subtitle={`${year} performance overview`}/><div className="dashboard-heading-actions"><button className="outline-btn compact" onClick={onRefresh} disabled={refreshing}><RefreshCw size={16} className={refreshing?'spin':''}/> {refreshing?'REFRESHING…':'REFRESH'}</button><button className="primary-btn compact" onClick={onReport}><Plus size={17}/> REPORT ESO</button></div></div>
-  <div className="stat-grid stat-grid-primary">
-   <StatCard label="ESO YTD" value={yr.length} color="blue" icon={<FileText size={22}/>} onClick={()=>setKpiView({title:`All ESO YTD — ${year}`,reports:yr})}/>
-   <StatCard label="OPEN" value={open} color="orange" icon={<AlertCircle size={22}/>} onClick={()=>setKpiView({title:"Open ESO",reports:reports.filter(r=>r.status==='Open')})}/>
-   <StatCard label="IN PROGRESS" value={inProgress} color="purple" icon={<LoaderCircle size={22}/>} onClick={()=>setKpiView({title:"ESO In Progress",reports:reports.filter(r=>r.status==='In Progress')})}/>
-   <StatCard label="COMPLETED" value={completed} color="green" icon={<CheckCircle2 size={22}/>} onClick={()=>setKpiView({title:"Completed ESO",reports:reports.filter(r=>r.status==='Completed')})}/>
-  </div>
-  <div className="dashboard-highlight-row alert-performers-row">
-   <div className="critical-highlight clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:"Critical Open ESO",reports:reports.filter(r=>r.urgency==='Critical'&&r.status!=='Completed')})}><div><span>CRITICAL OPEN</span><strong>{critical}</strong></div><div className="critical-icon"><ShieldAlert size={26}/></div></div>
-   <div className="overdue-highlight clickable-kpi" role="button" tabIndex={0} onClick={()=>setKpiView({title:"Overdue Corrective Actions",reports:reports.filter(r=>r.overdue)})}><div><span>OVERDUE</span><strong>{overdue}</strong></div><div className="overdue-icon"><CalendarClock size={26}/></div></div>
-  </div>
-  <div className="dashboard-highlight-row top-performers-row">
-   <TopResolverCard top={topResolver} onClick={topResolver?()=>setKpiView({title:`${topResolver.name} — Resolved ESO YTD`,reports:reports.filter(r=>r.status==='Completed'&&r.resolvedBy===topResolver.id&&inCurrentFY(r.completedAt||r.createdAt))}):undefined}/>
-   <TopEmployeeCard top={topEmployeeYtd} onClick={topEmployeeYtd?()=>setKpiView({title:`${topEmployeeYtd.name} — ESO YTD`,reports:yr.filter(r=>r.reporterId===topEmployeeYtd.id)}):undefined}/>
-  </div>
-  {user.role==='Super Admin'&&corporatePlants.length>0&&<div className="panel"><div className="panel-head"><h3>Corporate Plant Overview</h3><span>Company → Plant → Department → Employee</span></div><div className="department-cards">{corporatePlants.map((p:any)=><div className="dept-card" key={p.id}><div><b>{p.name}</b><span>{p.code} • {p.employees} employees</span></div><strong>{p.reportedYtd}<small> reported YTD</small></strong><div className="mini-progress"><i style={{width:`${Math.min(100,p.reportedYtd?Math.round(p.resolvedYtd/p.reportedYtd*100):0)}%`}}/></div><small>{p.resolvedYtd} resolved • {p.open} open • <b className={p.overdue?'overdue-text':''}>{p.overdue||0} overdue</b></small></div>)}</div></div>}
-  <DepartmentPerformance users={users} reports={reports} onOpen={onOpen} compact/>
-  <PlantYearSummary user={user} users={users} reports={reports} tracking={tracking}/>
-  {tracking&&<TrackingInsights tracking={tracking} reports={reports} users={users} onOpen={onOpen}/>} 
-  <ReportsTable title="Latest ESO Submissions" reports={reports.slice(0,10)} users={users} onOpen={onOpen}/>
-  {kpiView&&<KpiReportsModal title={kpiView.title} reports={kpiView.reports.map(item=>reports.find(r=>r.id===item.id)||item)} users={users} onOpen={onOpen} onClose={()=>setKpiView(null)}/>} 
- </div>
-}
-function ClosureRateMini({rates}:{rates:ClosureRates}){const items=[['week','This week',rates.week],['month','This month',rates.month],['year','Fiscal year',rates.year]] as const;return <div className="closure-rate-mini"><div className="closure-rate-mini-head"><div><h3>ESO closure rate</h3><span>Closed from reports created in each period</span></div><CheckCircle2 size={17}/></div><div className="closure-rate-mini-grid">{items.map(([key,label,period])=><div className={`closure-rate-mini-card ${key}`} key={key}><div><span>{label}</span><strong>{period.rate}%</strong></div><div className="closure-rate-mini-bar"><i style={{width:`${period.rate}%`}}/></div><small>{period.closed} closed · {period.reported} reported · {period.open} open</small></div>)}</div></div>}
-function KpiReportsModal({title,reports,users,onOpen,onClose}:{title:string,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void,onClose:()=>void}){return <div className="modal-backdrop"><div className="modal kpi-modal"><div className="modal-head"><div><h2>{title}</h2><span>{reports.length} records</span></div><button onClick={onClose}><X/></button></div><div className="modal-body"><ReportsTable title={title} reports={reports} users={users} onOpen={onOpen}/></div></div></div>}
-
-function TrackingInsights({tracking,reports,users,onOpen}:{tracking:TrackingData,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void}){
- const maxReported=Math.max(1,...tracking.monthly.map(x=>x.reported)),maxResolved=Math.max(1,...tracking.monthly.map(x=>x.resolved));
- const current=tracking.monthly[tracking.currentMonth-1],[resolverView,setResolverView]=useState<{title:string;reports:ESOReport[]}|null>(null),[reporterView,setReporterView]=useState<{title:string;reports:ESOReport[]}|null>(null);
- const reporterReports=(reporter:ReporterStat)=>reports.filter(r=>r.reporterId===reporter.id&&inCurrentFY(r.createdAt));
- const resolverReports=(resolver:ResolverStat)=>reports.filter(r=>r.status==='Completed'&&r.resolvedBy===resolver.id&&inCurrentFY(r.completedAt||r.createdAt));
- return <div className="tracking-section">
-  <div className="tracking-summary-grid">
-   <MonthlyPanel title="ESO Reported per Month" subtitle={`Calendar month • 1st to 1st • ${tracking.year}`} data={tracking.monthly} field="reported" max={maxReported} currentValue={current?.reported||0} currentMonth={tracking.currentMonth}/>
-   <MonthlyPanel title="ESO Resolved per Month" subtitle={`Calendar month • 1st to 1st • ${tracking.year}`} data={tracking.monthly} field="resolved" max={maxResolved} currentValue={current?.resolved||0} currentMonth={tracking.currentMonth}/>
-  </div>
-  <div className="leaderboard-grid">
-   <div className="panel reporter-panel"><div className="panel-head"><h3>Top ESO Reporters <span>• {tracking.year} YTD</span></h3><span>Who reported the most ESO opportunities</span></div>
-    {tracking.reporterLeaderboard.length===0?<div className="empty">No ESO reports recorded yet.</div>:<div className="resolver-list">{tracking.reporterLeaderboard.slice(0,5).map((r,i)=><div className="resolver-row clickable-kpi" role="button" tabIndex={0} key={r.id} title={`Show ESO reported by ${r.name}`} onClick={()=>setReporterView({title:`${r.name} — Reported ESO YTD`,reports:reporterReports(r)})} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setReporterView({title:`${r.name} — Reported ESO YTD`,reports:reporterReports(r)})}}><div className={`resolver-rank rank-${i+1}`}>{i+1}</div><div className="resolver-person"><b>{r.name}</b><span>{r.department} • {r.role}{r.employeeId?` • ID ${r.employeeId}`:''}</span></div><div className="resolver-metric"><strong>{r.reportedYtd}</strong><span>Reported YTD</span></div><div className="resolver-metric"><strong>{r.reportedThisMonth}</strong><span>This month</span></div></div>)}</div>}
-   </div>
-   <div className="panel resolver-panel"><div className="panel-head"><h3>Top ESO Resolvers <span>• {tracking.year} YTD</span></h3><span>Who completed assigned corrective-action tasks</span></div>
-    {tracking.resolverLeaderboard.length===0?<div className="empty">No resolved ESO tasks recorded yet.</div>:<div className="resolver-list">{tracking.resolverLeaderboard.slice(0,5).map((r,i)=><div className="resolver-row clickable-kpi" role="button" tabIndex={0} key={r.id} title={`Show ESO resolved by ${r.name}`} onClick={()=>setResolverView({title:`${r.name} — Resolved ESO YTD`,reports:resolverReports(r)})} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setResolverView({title:`${r.name} — Resolved ESO YTD`,reports:resolverReports(r)})}}><div className={`resolver-rank rank-${i+1}`}>{i+1}</div><div className="resolver-person"><b>{r.name}</b><span>{r.department} • {r.role}{r.employeeId?` • ID ${r.employeeId}`:''}</span></div><div className="resolver-metric"><strong>{r.resolvedYtd}</strong><span>Resolved YTD</span></div><div className="resolver-metric"><strong>{r.resolvedThisMonth}</strong><span>This month</span></div></div>)}</div>}
-   </div>
-  </div>
-  {reporterView&&<KpiReportsModal title={reporterView.title} reports={reporterView.reports} users={users} onOpen={onOpen} onClose={()=>setReporterView(null)}/>} {resolverView&&<KpiReportsModal title={resolverView.title} reports={resolverView.reports} users={users} onOpen={onOpen} onClose={()=>setResolverView(null)}/>}</div>
-}
-function MonthlyPanel({title,subtitle,data,field,max,currentValue,currentMonth}:{title:string,subtitle:string,data:MonthlyTrackingPoint[],field:'reported'|'resolved',max:number,currentValue:number,currentMonth:number}){return <div className={`panel monthly-panel ${field}`}><div className="panel-head"><div><h3>{title}</h3><span>{subtitle}</span></div><div className="month-current"><strong>{currentValue}</strong><small>THIS MONTH</small></div></div><div className="month-grid">{data.map(m=><div className={`month-cell ${m.month===currentMonth?'current':''}`} key={m.month}><span>{m.label}</span><strong>{m[field]}</strong><div className="month-bar"><i style={{height:`${Math.max(m[field]?14:2,Math.round(m[field]/max*100))}%`}}/></div></div>)}</div></div>}
-
-function ReportsTable({title,reports,users,onOpen,adminFilters=false}:{title:string,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void,adminFilters?:boolean}){
- const[q,setQ]=useState(''),[status,setStatus]=useState('All'),[urg,setUrg]=useState('All'),[category,setCategory]=useState('All'),[department,setDepartment]=useState('All'),[location,setLocation]=useState('All'),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[starsOnly,setStarsOnly]=useState(false);
- const departmentOptions=Array.from(new Set(users.map(u=>u.department).filter(Boolean))).sort((a,b)=>a.localeCompare(b)),locationOptions=Array.from(new Set(reports.map(r=>r.location).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
- const dateKey=(value:string)=>{const d=new Date(value);if(Number.isNaN(d.getTime()))return '';const p=localParts(d);return `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`};
- const visible=reports.filter(r=>{const u=users.find(x=>x.id===r.reporterId),s=q.trim().toLowerCase(),departmentName=u?.department||'',reportDate=dateKey(r.createdAt);return(!s||r.esoNo.toLowerCase().includes(s)||u?.name?.toLowerCase().includes(s)||u?.employeeId?.toLowerCase().includes(s)||departmentName.toLowerCase().includes(s)||r.location.toLowerCase().includes(s))&&(status==='All'||r.status===status)&&(urg==='All'||r.urgency===urg)&&(category==='All'||r.category===category)&&(department==='All'||departmentName===department)&&(location==='All'||r.location===location)&&(!dateFrom||reportDate>=dateFrom)&&(!dateTo||reportDate<=dateTo)&&(!starsOnly||r.isStarred)}).sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());
- return <div className="panel"><div className="panel-head"><h3>{title}</h3><span>{visible.length} records • newest first</span></div>{adminFilters&&<div className="filters report-filters"><div className="search"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search ESO, employee, location…"/></div><label className="filter-date"><span>From</span><input type="date" aria-label="From date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/></label><label className="filter-date"><span>To</span><input type="date" aria-label="To date" value={dateTo} onChange={e=>setDateTo(e.target.value)}/></label><select value={department} onChange={e=>setDepartment(e.target.value)}><option value="All">All departments</option>{departmentOptions.map(d=><option key={d} value={d}>{d}</option>)}</select><select value={location} onChange={e=>setLocation(e.target.value)}><option value="All">All locations</option>{locationOptions.map(l=><option key={l} value={l}>{l}</option>)}</select><select value={status} onChange={e=>setStatus(e.target.value)}><option value="All">All statuses</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Completed">Completed</option></select><select value={urg} onChange={e=>setUrg(e.target.value)}><option value="All">All urgency</option><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option></select><select value={category} onChange={e=>setCategory(e.target.value)}><option value="All">All categories</option><option value="Safety">Safety</option><option value="Environmental">Environmental</option></select><button type="button" className={`star-filter ${starsOnly?'active':''}`} onClick={()=>setStarsOnly(v=>!v)}><Star size={16} fill={starsOnly?'currentColor':'none'}/> ESO Stars</button></div>}<div className="table-wrap reports-table"><table><thead><tr><th>ESO #</th><th>Employee</th><th>Plant</th><th>Department</th><th>Date</th><th>Location</th><th>Urgency</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(r=>{const u=users.find(x=>x.id===r.reporterId),assigned=users.find(x=>x.id===r.assignedTo),completedBy=r.status==='Completed'?(r.resolvedByName||users.find(x=>x.id===r.resolvedBy)?.name||'Not recorded'):null,overdueBy=r.overdue?(r.assignedToName||assigned?.name||'Not assigned'):null,inProgressBy=r.status==='In Progress'?(r.assignedToName||assigned?.name||'Not assigned'):null,inProgressRole=r.assignedToRole||assigned?.role;return <tr key={r.id} className={r.isStarred?'starred-row':''}><td data-label="ESO #"><b>{r.isStarred&&<Star className="eso-star-inline" size={15} fill="currentColor"/>}{r.esoNo}</b>{(r.starCount||0)>0&&<small className="star-count-cell">{r.starCount} {r.starCount===1?'STAR':'STARS'}</small>}</td><td data-label="Employee">{u?.name||'—'}<small>ID {u?.employeeId||'—'}</small>{completedBy&&<small className="completed-by-cell">Completed by: {completedBy}</small>}{overdueBy&&<small className="overdue-by-cell">Overdue by: {overdueBy}</small>}</td><td data-label="Plant">{r.plantName||u?.plantName||'—'}</td><td data-label="Department">{u?.department||'—'}</td><td data-label="Date">{new Date(r.createdAt).toLocaleDateString()}</td><td data-label="Location">{r.location}</td><td data-label="Urgency"><Badge text={r.urgency}/></td><td data-label="Status"><Badge text={r.status}/>{inProgressBy&&<small className="assigned-to-cell">Assigned To: {inProgressBy}{inProgressRole?` • ${inProgressRole}`:''}</small>}</td><td data-label=""><button className="outline-small" onClick={()=>onOpen(r)}>OPEN</button></td></tr>})}</tbody></table></div></div>
-}
-function ReportsTableLegacy({title,reports,users,onOpen,adminFilters=false}:{title:string,reports:ESOReport[],users:User[],onOpen:(r:ESOReport)=>void,adminFilters?:boolean}){const[q,setQ]=useState(''),[status,setStatus]=useState('All'),[urg,setUrg]=useState('All'),[starsOnly,setStarsOnly]=useState(false);const visible=reports.filter(r=>{const u=users.find(x=>x.id===r.reporterId),s=q.toLowerCase();return(!s||r.esoNo.toLowerCase().includes(s)||u?.name.toLowerCase().includes(s)||u?.employeeId.includes(s)||r.location.toLowerCase().includes(s))&&(status==='All'||r.status===status)&&(urg==='All'||r.urgency===urg)&&(!starsOnly||r.isStarred)});return <div className="panel"><div className="panel-head"><h3>{title}</h3><span>{visible.length} records</span></div>{adminFilters&&<div className="filters"><div className="search"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search ESO, employee, location…"/></div><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Open</option><option>In Progress</option><option>Completed</option></select><select value={urg} onChange={e=>setUrg(e.target.value)}><option>All</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select><button type="button" className={`star-filter ${starsOnly?'active':''}`} onClick={()=>setStarsOnly(v=>!v)}><Star size={16} fill={starsOnly?'currentColor':'none'}/> ESO Stars</button></div>}<div className="table-wrap reports-table"><table><thead><tr><th>ESO #</th><th>Employee</th><th>Plant</th><th>Department</th><th>Date</th><th>Location</th><th>Urgency</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(r=>{const u=users.find(x=>x.id===r.reporterId);return <tr key={r.id} className={r.isStarred?'starred-row':''}><td data-label="ESO #"><b>{r.isStarred&&<Star className="eso-star-inline" size={15} fill="currentColor"/>}{r.esoNo}</b></td><td data-label="Employee">{u?.name}<small>ID {u?.employeeId}</small></td><td data-label="Plant">{r.plantName||u?.plantName||'—'}</td><td data-label="Department">{u?.department}</td><td data-label="Date">{new Date(r.createdAt).toLocaleDateString()}</td><td data-label="Location">{r.location}</td><td data-label="Urgency"><Badge text={r.urgency}/></td><td data-label="Status"><Badge text={r.status}/></td><td data-label=""><button className="outline-small" onClick={()=>onOpen(r)}>OPEN</button></td></tr>})}</tbody></table></div></div>}
-function ReportModal({report,users,locations,currentUser,onChanged,onClose}:{report:ESOReport,users:User[],locations:Location[],currentUser:User,onChanged:()=>Promise<void>,onClose:()=>void}){
- const u=users.find(x=>x.id===report.reporterId),m=users.find(x=>x.id===report.assignedTo),resolver=users.find(x=>x.id===report.resolvedBy);
- const[starBusy,setStarBusy]=useState(false),[starError,setStarError]=useState(''),[reclassOpen,setReclassOpen]=useState(false),[reclassCategory,setReclassCategory]=useState('other'),[reclassReason,setReclassReason]=useState(''),[reclassBusy,setReclassBusy]=useState(false),[resolverOpen,setResolverOpen]=useState(false),[resolverId,setResolverId]=useState(report.resolvedBy||''),[resolverBusy,setResolverBusy]=useState(false);
- const assignedName=m?.name||report.assignedToName,assignedRole=m?.role||report.assignedToRole,resolverName=resolver?.name||report.resolvedByName,resolverRole=resolver?.role||report.resolvedByRole,canStar=canViewAll(currentUser.role),canAttribute=canAdmin(currentUser.role),resolverOptions=users.filter(x=>x.active&&(!report.plantId||x.plantId===report.plantId));
- const starCount=report.starCount??(report.isStarred?1:0),starredByMe=report.starredByMe??Boolean(report.isStarred&&report.starredBy===currentUser.id);
- const toggleStar=async()=>{setStarBusy(true);setStarError('');try{await json('/api/reports/star',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reportId:report.id,version:report.revision,starred:!starredByMe})});await onChanged()}catch(e:any){setStarError(e.message)}finally{setStarBusy(false)}};
- const reclassify=async()=>{if(!reclassReason.trim())return;setReclassBusy(true);setStarError('');try{await json('/api/reclassify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({esoId:report.id,version:report.revision,reason:reclassReason.trim(),category:reclassCategory})});setReclassOpen(false);setReclassReason('');setReclassCategory('other');await onChanged()}catch(e:any){setStarError(e.message)}finally{setReclassBusy(false)}};
- const setCompletionResolver=async()=>{if(!resolverId)return;setResolverBusy(true);setStarError('');try{await json('/api/reports/completion-resolver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reportId:report.id,version:report.revision,resolverId})});setResolverOpen(false);await onChanged()}catch(e:any){setStarError(e.message)}finally{setResolverBusy(false)}};
- return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><div><h2>{starCount>0&&<Star className="eso-star-title" size={20} fill="currentColor"/>}{report.esoNo}</h2><span>ESO Details</span></div><Badge text={report.urgency}/><button onClick={onClose}><X/></button></div><div className="modal-body">{starCount>0&&<div className="eso-star-banner"><Star size={20} fill="currentColor"/><div><b>ESO Star • {starCount} {starCount===1?'star':'stars'}</b><span>Recognized as a valuable ESO{report.starredByName?` by ${report.starredByName}`:''}{report.starredAt?` • ${new Date(report.starredAt).toLocaleString()}`:''}</span></div></div>}{(canStar||(canAttribute&&report.status==='Completed'))&&<div className="star-actions">{canStar&&<><button className={starredByMe?'remove-star-btn':'award-star-btn'} onClick={toggleStar} disabled={starBusy}><Star size={17} fill={starredByMe?'currentColor':'none'}/>{starBusy?'SAVING…':starredByMe?'REMOVE MY STAR':'ADD ESO STAR'}</button><button className="reclassify-btn" onClick={()=>setReclassOpen(true)}><MessageSquare size={17}/> MOVE TO VOE</button></>}{canAttribute&&report.status==='Completed'&&<button className="completion-resolver-btn" onClick={()=>{setResolverId(report.resolvedBy||'');setResolverOpen(true)}}><Users size={17}/>{resolverName?'EDIT COMPLETED BY':'SET COMPLETED BY'}</button>}</div>}{starError&&<div className="form-error">{starError}</div>}<div className="detail-grid"><Detail l="Reporter" v={`${u?.name||''} • ID ${u?.employeeId||''}`}/><Detail l="Date & Time" v={new Date(report.createdAt).toLocaleString()}/><Detail l="Department" v={u?.department||'—'}/>{report.plantName&&<Detail l="Plant" v={report.plantName}/>}<Detail l="Status" v={report.status}/><Detail l="ESO Stars" v={String(starCount)}/><Detail l="Location" v={report.location}/><Detail l="Assigned To" v={assignedName?`${assignedName}${assignedRole?` • ${assignedRole}`:''}`:'Not assigned'}/>{report.dueAt&&<Detail l="Due Date" v={`${new Date(report.dueAt).toLocaleString()}${report.overdue?` • OVERDUE ${report.overdueDays} day${report.overdueDays===1?'':'s'}`:''}`}/>}{report.status==='Completed'&&<Detail l="Resolved By" v={resolverName?`${resolverName}${resolverRole?` • ${resolverRole}`:''}`:'Not recorded'}/>} {report.completedAt&&<Detail l="Resolved At" v={new Date(report.completedAt).toLocaleString()}/>}</div><Block l="Problem Description" v={report.description}/><Block l="Corrective Action" v={report.correctiveAction||'No corrective action recorded yet.'}/><ReportWorkspace users={users} report={report} currentUser={currentUser} locations={locations} onChanged={onChanged}/></div></div>{reclassOpen&&<div className="modal-backdrop reclassify-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!reclassBusy)setReclassOpen(false)}}><div className="small-modal reclassify-modal"><div className="reclassify-modal-head"><div><h3>Move to Voice of Employee</h3><p>Reclassify this ESO without deleting its history.</p></div><button className="icon-btn" onClick={()=>setReclassOpen(false)} disabled={reclassBusy}><X size={20}/></button></div><label>Category<select value={reclassCategory} onChange={e=>setReclassCategory(e.target.value)}><option value="workplace_conditions">Workplace &amp; Working Conditions</option><option value="compensation_benefits">Compensation &amp; Benefits</option><option value="process_improvement">Process Improvement</option><option value="equipment_tools">Equipment &amp; Tools</option><option value="work_organization">Work Organization</option><option value="management_communication">Management &amp; Communication</option><option value="employee_wellbeing">Employee Wellbeing</option><option value="other">Other</option></select></label><label>Reason for reclassification<textarea rows={4} value={reclassReason} onChange={e=>setReclassReason(e.target.value)} placeholder="Explain why this report is being moved to Voice of Employee…"/></label><div className="form-actions"><button className="outline-btn" onClick={()=>setReclassOpen(false)} disabled={reclassBusy}>CANCEL</button><button className="primary-btn" onClick={reclassify} disabled={reclassBusy||!reclassReason.trim()}><MessageSquare size={17}/>{reclassBusy?'MOVING…':'MOVE TO VOE'}</button></div></div></div>}{resolverOpen&&<div className="modal-backdrop reclassify-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!resolverBusy)setResolverOpen(false)}}><form className="small-modal reclassify-modal" onSubmit={e=>{e.preventDefault();void setCompletionResolver()}}><div className="reclassify-modal-head"><div><h3>Set Completed By</h3><p>Use this when the ESO was completed outside the app. The completion status and date stay unchanged.</p></div><button type="button" className="icon-btn" onClick={()=>setResolverOpen(false)} disabled={resolverBusy}><X size={20}/></button></div><label>Completed by<select required value={resolverId} onChange={e=>setResolverId(e.target.value)}><option value="">Select employee</option>{resolverOptions.map(x=><option key={x.id} value={x.id}>{x.name} • {x.role}{x.employeeId?` • ID ${x.employeeId}`:''}</option>)}</select></label><div className="form-actions"><button type="button" className="outline-btn" onClick={()=>setResolverOpen(false)} disabled={resolverBusy}>CANCEL</button><button className="primary-btn" disabled={resolverBusy||!resolverId}><Users size={17}/>{resolverBusy?'SAVING…':'SAVE COMPLETED BY'}</button></div></form></div>}</div>}
-function ReportModalLegacy({report,users,locations,currentUser,onChanged,onClose}:{report:ESOReport,users:User[],locations:Location[],currentUser:User,onChanged:()=>Promise<void>,onClose:()=>void}){const u=users.find(x=>x.id===report.reporterId),m=users.find(x=>x.id===report.assignedTo),resolver=users.find(x=>x.id===report.resolvedBy),[starBusy,setStarBusy]=useState(false),[starError,setStarError]=useState(''),[reclassOpen,setReclassOpen]=useState(false),[reclassCategory,setReclassCategory]=useState('other'),[reclassReason,setReclassReason]=useState(''),[reclassBusy,setReclassBusy]=useState(false);const assignedName=m?.name||report.assignedToName,assignedRole=m?.role||report.assignedToRole,resolverName=resolver?.name||report.resolvedByName,resolverRole=resolver?.role||report.resolvedByRole,canStar=canViewAll(currentUser.role);const toggleStar=async()=>{setStarBusy(true);setStarError('');try{await json('/api/reports/star',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reportId:report.id,version:report.revision,starred:!report.isStarred})});await onChanged()}catch(e:any){setStarError(e.message)}finally{setStarBusy(false)}};const reclassify=async()=>{if(!reclassReason.trim())return;setReclassBusy(true);setStarError('');try{await json('/api/reclassify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({esoId:report.id,version:report.revision,reason:reclassReason.trim(),category:reclassCategory})});setReclassOpen(false);setReclassReason('');setReclassCategory('other');await onChanged()}catch(e:any){setStarError(e.message)}finally{setReclassBusy(false)}};return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><div><h2>{report.isStarred&&<Star className="eso-star-title" size={20} fill="currentColor"/>}{report.esoNo}</h2><span>ESO Details</span></div><Badge text={report.urgency}/><button onClick={onClose}><X/></button></div><div className="modal-body">{report.isStarred&&<div className="eso-star-banner"><Star size={20} fill="currentColor"/><div><b>ESO Star</b><span>Recognized as a valuable ESO{report.starredByName?` by ${report.starredByName}`:''}{report.starredAt?` • ${new Date(report.starredAt).toLocaleString()}`:''}</span></div></div>}{canStar&&<div className="star-actions"><button className={report.isStarred?'remove-star-btn':'award-star-btn'} onClick={toggleStar} disabled={starBusy}><Star size={17} fill={report.isStarred?'currentColor':'none'}/>{starBusy?'SAVING…':report.isStarred?'REMOVE ESO STAR':'AWARD ESO STAR'}</button><button className="reclassify-btn" onClick={()=>setReclassOpen(true)}><MessageSquare size={17}/> MOVE TO VOE</button></div>}{starError&&<div className="form-error">{starError}</div>}<div className="detail-grid"><Detail l="Reporter" v={`${u?.name||''} • ID ${u?.employeeId||''}`}/><Detail l="Date & Time" v={new Date(report.createdAt).toLocaleString()}/><Detail l="Department" v={u?.department||'—'}/>{report.plantName&&<Detail l="Plant" v={report.plantName}/>}<Detail l="Status" v={report.status}/><Detail l="Location" v={report.location}/><Detail l="Assigned To" v={assignedName?`${assignedName}${assignedRole?` • ${assignedRole}`:''}`:'Not assigned'}/>{report.dueAt&&<Detail l="Due Date" v={`${new Date(report.dueAt).toLocaleString()}${report.overdue?` • OVERDUE ${report.overdueDays} day${report.overdueDays===1?'':'s'}`:''}`}/>}{report.status==='Completed'&&<Detail l="Resolved By" v={resolverName?`${resolverName}${resolverRole?` • ${resolverRole}`:''}`:'Not recorded'}/>} {report.completedAt&&<Detail l="Resolved At" v={new Date(report.completedAt).toLocaleString()}/>}</div><Block l="Problem Description" v={report.description}/><Block l="Corrective Action" v={report.correctiveAction||'No corrective action recorded yet.'}/><ReportWorkspace users={users} report={report} currentUser={currentUser} locations={locations} onChanged={onChanged}/></div></div>{reclassOpen&&<div className="modal-backdrop reclassify-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!reclassBusy)setReclassOpen(false)}}><div className="small-modal reclassify-modal"><div className="reclassify-modal-head"><div><h3>Move to Voice of Employee</h3><p>Reclassify this ESO without deleting its history.</p></div><button className="icon-btn" onClick={()=>setReclassOpen(false)} disabled={reclassBusy}><X size={20}/></button></div><label>Category<select value={reclassCategory} onChange={e=>setReclassCategory(e.target.value)}><option value="workplace_conditions">Workplace &amp; Working Conditions</option><option value="compensation_benefits">Compensation &amp; Benefits</option><option value="process_improvement">Process Improvement</option><option value="equipment_tools">Equipment &amp; Tools</option><option value="work_organization">Work Organization</option><option value="management_communication">Management &amp; Communication</option><option value="employee_wellbeing">Employee Wellbeing</option><option value="other">Other</option></select></label><label>Reason for reclassification<textarea rows={4} value={reclassReason} onChange={e=>setReclassReason(e.target.value)} placeholder="Explain why this report is being moved to Voice of Employee…"/></label><div className="form-actions"><button className="outline-btn" onClick={()=>setReclassOpen(false)} disabled={reclassBusy}>CANCEL</button><button className="primary-btn" onClick={reclassify} disabled={reclassBusy||!reclassReason.trim()}><MessageSquare size={17}/>{reclassBusy?'MOVING…':'MOVE TO VOE'}</button></div></div></div>}</div>}
-
-function Detail({l,v}:{l:string,v:string}){return <div className="detail"><span>{l}</span><strong>{v}</strong></div>}function Block({l,v}:{l:string,v:string}){return <div className="detail-block"><span>{l}</span><p data-no-translate>{v}</p></div>}
-function Employees({currentUser,users,reports,departments,plants,reload}:{currentUser:User,users:User[],reports:ESOReport[],departments:Department[],plants:Plant[],reload:()=>Promise<void>}){
- const[dept,setDept]=useState('All'),[plantFilter,setPlantFilter]=useState('All'),[query,setQuery]=useState(''),[showInactive,setShowInactive]=useState(false),[show,setShow]=useState(false),[edit,setEdit]=useState<User|null>(null),[importOpen,setImportOpen]=useState(false),[importFile,setImportFile]=useState<File|null>(null),[importResult,setImportResult]=useState<any>(null),[bulkTargetOpen,setBulkTargetOpen]=useState(false),[bulkTarget,setBulkTarget]=useState(24),[bulkUpdated,setBulkUpdated]=useState<number|null>(null),[bulkError,setBulkError]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const[form,setForm]=useState({employeeId:'',name:'',plantId:currentUser.plantId||plants[0]?.id||'',department:departments.find(d=>d.plantId===(currentUser.plantId||plants[0]?.id))?.name||'',role:'Employee' as Role,password:'',annualTarget:12});
- const[editForm,setEditForm]=useState({name:'',plantId:'',department:'',role:'Employee' as Role,newPassword:'',annualTarget:12});
- const normalizedQuery=query.trim().toLowerCase();
- const emps=users.filter(u=>(showInactive||u.active)&&(plantFilter==='All'||u.plantId===plantFilter)&&(dept==='All'||u.department===dept)&&(!normalizedQuery||u.name.toLowerCase().includes(normalizedQuery)||String(u.employeeId).toLowerCase().includes(normalizedQuery)));
- const roleOptions=(currentUser.role==='Super Admin'?['Employee','Maintenance','Supervisor','Management','Admin','Super Admin']:['Employee','Maintenance','Supervisor','Management','Admin']) as Role[];
- const add=async(e:FormEvent)=>{e.preventDefault();setError('');setBusy(true);try{await json('/api/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});setShow(false);setForm({...form,employeeId:'',name:'',password:''});await reload()}catch(e:any){setError(e.message)}finally{setBusy(false)}};
- const openEdit=(u:User)=>{setEdit(u);setEditForm({name:u.name,plantId:u.plantId||currentUser.plantId||'',department:u.department,role:u.role,newPassword:'',annualTarget:u.annualTarget});setError('')};
- const save=async(e:FormEvent)=>{e.preventDefault();if(!edit)return;setError('');if(edit.role==='Employee'&&editForm.role!=='Employee'&&editForm.newPassword.length<6){setError('Set an initial password of at least 8 characters for the new privileged role.');return}setBusy(true);try{await json('/api/employees',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:edit.id,...editForm})});setEdit(null);await reload()}catch(e:any){setError(e.message)}finally{setBusy(false)}};
- const remove=async()=>{if(!edit||!confirm(`Deactivate ${edit.name}? The user will no longer be able to log in, while historical ESO records remain.`))return;setError('');try{await json('/api/employees',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:edit.id})});setEdit(null);await reload()}catch(e:any){setError(e.message)}};
- const importEmployees=async()=>{if(!importFile)return;setBusy(true);setImportResult(null);setError('');try{const fd=new FormData();fd.set('file',importFile);const r=await json('/api/employees/import',{method:'POST',body:fd});setImportResult(r);await reload()}catch(e:any){setError(e.message)}finally{setBusy(false)}};
- const bulkScope=currentUser.role==='Super Admin'?'all active users in this company':'all active non-Super-Admin users in my plant';
- const bulkScopeCount=users.filter(u=>u.active&&(currentUser.role==='Super Admin'||(u.plantId===currentUser.plantId&&u.role!=='Super Admin'))).length;
- const openBulkTarget=()=>{setBulkTarget(24);setBulkUpdated(null);setBulkError('');setBulkTargetOpen(true)};
- const updateBulkTarget=async(e:FormEvent)=>{e.preventDefault();setBulkError('');setBusy(true);try{const result=await json('/api/employees/bulk-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:bulkTarget})});setBulkUpdated(result.updated||0);await reload()}catch(e:any){setBulkError(e.message)}finally{setBusy(false)}};
- return <div className="page"><Title title="Employee Tracker" subtitle={`${new Date().getFullYear()} ESO target performance`}/>
-  <div className="toolbar employee-tracker-toolbar"><div className="employee-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search employee by name or ID…" aria-label="Search employee by name or ID"/>{query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={16}/></button>}</div>{currentUser.role==='Super Admin'&&<select value={plantFilter} onChange={e=>{setPlantFilter(e.target.value);setDept('All')}}><option value="All">All plants</option>{plants.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}<select value={dept} onChange={e=>setDept(e.target.value)}><option>All</option>{departments.filter(d=>d.active&&(plantFilter==='All'||d.plantId===plantFilter)).map(d=><option key={d.id}>{d.name}</option>)}</select><label className="show-inactive"><input type="checkbox" checked={showInactive} onChange={e=>setShowInactive(e.target.checked)}/> Show inactive users</label>{canAdmin(currentUser.role)&&<><button className="outline-btn compact" onClick={openBulkTarget}><Target size={17}/> SET ALL TARGETS</button><button className="outline-btn compact" onClick={()=>{setImportOpen(true);setError('');setImportResult(null)}}><FileSpreadsheet size={17}/> IMPORT EXCEL</button><button className="primary-btn compact" onClick={()=>{setShow(true);setError('')}}><Plus size={17}/> ADD USER</button></>}</div>
-  <div className="panel"><div className="employee-result-count">{emps.length} {emps.length===1?'employee':'employees'} found</div><EmployeeTable users={emps} reports={reports} canEdit={canAdmin(currentUser.role)} onEdit={openEdit}/></div>
-  {show&&<div className="modal-backdrop"><form className="small-modal" onSubmit={add}><h3>Add Employee / User</h3><label>Employee ID<input required value={form.employeeId} onChange={e=>setForm({...form,employeeId:e.target.value})}/></label><label>Full Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>{currentUser.role==='Super Admin'&&<label>Plant<select value={form.plantId} onChange={e=>{const pid=e.target.value;setForm({...form,plantId:pid,department:departments.find(d=>d.active&&d.plantId===pid)?.name||''})}}>{plants.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<label>Department<select value={form.department} onChange={e=>setForm({...form,department:e.target.value})}>{departments.filter(d=>d.active&&(!form.plantId||d.plantId===form.plantId)).map(d=><option key={d.id}>{d.name}</option>)}</select></label><label>Role<select value={form.role} onChange={e=>setForm({...form,role:e.target.value as Role})}>{roleOptions.map(r=><option key={r}>{r}</option>)}</select></label><label>Annual ESO Target<input type="number" min={0} value={form.annualTarget} onChange={e=>setForm({...form,annualTarget:Number(e.target.value)})}/></label>{form.role!=='Employee'&&<label>Initial Password<input required minLength={8} type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/></label>}{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={()=>setShow(false)}>Cancel</button><button className="primary-btn" disabled={busy}>Add User</button></div></form></div>}
-  {edit&&<div className="modal-backdrop"><form className="small-modal" onSubmit={save}><h3>Edit User</h3><p>ID {edit.employeeId} • {edit.active?'Active':'Inactive'}</p><label>Full Name<input autoFocus required value={editForm.name} onChange={e=>setEditForm({...editForm,name:e.target.value})}/></label>{currentUser.role==='Super Admin'&&<label>Plant<select value={editForm.plantId} onChange={e=>{const pid=e.target.value;setEditForm({...editForm,plantId:pid,department:departments.find(d=>d.active&&d.plantId===pid)?.name||''})}}>{plants.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<label>Department<select value={editForm.department} onChange={e=>setEditForm({...editForm,department:e.target.value})}>{departments.filter(d=>d.active&&(!editForm.plantId||d.plantId===editForm.plantId)).map(d=><option key={d.id}>{d.name}</option>)}</select></label><label>Role<select value={editForm.role} onChange={e=>setEditForm({...editForm,role:e.target.value as Role})}>{roleOptions.map(r=><option key={r}>{r}</option>)}</select></label><label>Annual ESO Target<input type="number" min={0} value={editForm.annualTarget} onChange={e=>setEditForm({...editForm,annualTarget:Number(e.target.value)})}/></label>{editForm.role!=='Employee'&&<label>Set / Reset Password <small>(leave blank to keep current)</small><input minLength={8} type="password" value={editForm.newPassword} onChange={e=>setEditForm({...editForm,newPassword:e.target.value})}/></label>}{error&&<div className="form-error">{error}</div>}<div className="danger-zone"><button type="button" className="danger-btn" onClick={remove}><Trash2 size={16}/> DELETE USER</button><small>User is removed from active lists and login is disabled; historical ESO records stay linked.</small></div><div className="form-actions"><button type="button" className="outline-btn" onClick={()=>setEdit(null)}>Cancel</button><button className="primary-btn" disabled={busy}>Save Changes</button></div></form></div>}
-  {bulkTargetOpen&&<div className="modal-backdrop"><form className="small-modal" onSubmit={updateBulkTarget}><h3>Set Annual Target for Everyone</h3>{bulkUpdated===null?<><p>This changes the annual ESO target for {bulkScopeCount} {bulkScope}. Inactive users remain unchanged.</p><label>Annual ESO target<input type="number" min={0} max={10000} required value={bulkTarget} onChange={e=>setBulkTarget(Number(e.target.value))}/></label><div className="form-error">Confirm that you want to set the target to {bulkTarget} for {bulkScope}.</div>{bulkError&&<div className="form-error">{bulkError}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={()=>setBulkTargetOpen(false)} disabled={busy}>Cancel</button><button className="primary-btn" disabled={busy}>{busy?'UPDATING…':'SET TARGET FOR ALL'}</button></div></>:<><div className="success-box">Annual target set to {bulkTarget} for {bulkUpdated} active users.</div><div className="form-actions"><button type="button" className="primary-btn" onClick={()=>setBulkTargetOpen(false)}>Done</button></div></>}</form></div>}
-  {importOpen&&<div className="modal-backdrop"><div className="small-modal"><h3>Bulk Employee Import</h3><p>Upload an .xlsx file. Existing Employee IDs are updated; new IDs are created.</p><a className="outline-btn" href="/api/employees/template"><Download size={16}/> DOWNLOAD TEMPLATE</a><label>Excel File<input type="file" accept=".xlsx,.csv" onChange={e=>setImportFile(e.target.files?.[0]||null)}/></label>{importResult&&<div className="import-result"><b>{importResult.imported} added • {importResult.updated} updated</b>{importResult.errors?.length>0&&<><small>{importResult.errors.length} rows need attention</small><div className="import-errors">{importResult.errors.slice(0,8).map((x:any)=><div key={x.row}>Row {x.row}: {x.error}</div>)}</div></>}</div>}{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button className="outline-btn" onClick={()=>setImportOpen(false)}>Close</button><button className="primary-btn" disabled={!importFile||busy} onClick={importEmployees}>{busy?'IMPORTING…':'IMPORT EMPLOYEES'}</button></div></div></div>}
- </div>
-}
-function EmployeeTable({users,reports,canEdit=false,onEdit}:{users:User[],reports:ESOReport[],canEdit?:boolean,onEdit?:(u:User)=>void}){const fy=fiscalYearInfo(),expected=((localParts(new Date()).month+2)%12)+1;return <div className="table-wrap employee-table"><table><thead><tr><th>Employee ID</th><th>Employee</th><th>Role</th><th>Plant</th><th>Department</th><th>ESO YTD</th><th>Annual Target</th><th>Progress</th><th>Remaining</th><th>Status</th>{canEdit&&<th></th>}</tr></thead><tbody>{users.map(u=>{const count=reports.filter(r=>r.reporterId===u.id&&inCurrentFY(r.createdAt)).length,pct=u.annualTarget?Math.round(count/u.annualTarget*100):100,status=count>=u.annualTarget?'Target Achieved':count>=expected?'On Track':'Behind Target';return <tr key={u.id}><td data-label="ID"><b>{u.employeeId}</b></td><td data-label="Employee">{u.name}</td><td data-label="Role">{u.role}</td><td data-label="Plant">{u.plantName||'—'}</td><td data-label="Department">{u.department}</td><td data-label="ESO YTD">{count}</td><td data-label="Target">{u.annualTarget}</td><td data-label="Progress"><div className="mini-progress"><i style={{width:`${Math.min(100,pct)}%`}}/></div><small>{pct}%</small></td><td data-label="Remaining">{Math.max(0,u.annualTarget-count)}</td><td data-label="Status"><Badge text={status}/></td>{canEdit&&<td><button className="outline-small" onClick={()=>onEdit?.(u)}>EDIT USER</button></td>}</tr>})}</tbody></table></div>}
-function DepartmentPerformance({users,reports,onOpen,compact=false}:{users:User[],reports:ESOReport[],onOpen:(r:ESOReport)=>void,compact?:boolean}){
- const[selectedDept,setSelectedDept]=useState<any|null>(null),[expanded,setExpanded]=useState(!compact),multiPlant=new Set(users.map(u=>u.plantId).filter(Boolean)).size>1,keys=Array.from(new Set(users.filter(u=>u.active).map(u=>`${u.plantId||''}::${u.department}`))),groups=keys.map(key=>{const[pid,name]=key.split('::'),m=users.filter(u=>u.active&&(u.plantId||'')===pid&&u.department===name),ids=new Set(m.map(x=>x.id)),deptReports=reports.filter(r=>ids.has(r.reporterId)&&inCurrentFY(r.createdAt)),count=deptReports.length,target=m.reduce((a,b)=>a+b.annualTarget,0),plant=m[0]?.plantName||'';return{key,name,label:multiPlant&&plant?`${plant} • ${name}`:name,plant,members:m.length,count,target,pct:target?Math.round(count/target*100):0,reports:deptReports}});
- return <><div className={`panel department-performance-panel ${compact?'compact-mode':''}`}><div className="panel-head department-performance-head"><div><h3>Department Performance</h3><span>{compact?(expanded?'Click a department to open its ESO list':'Click to expand department details'):'Company → Plant → Department → Employee'}</span></div>{compact&&<button type="button" className="department-performance-toggle" onClick={()=>setExpanded(v=>!v)} aria-expanded={expanded}>{expanded?'COLLAPSE':'EXPAND'}<ChevronRight size={16} className={expanded?'is-open':''}/></button>}</div>{compact&&!expanded&&<div className="department-compact-list">{groups.map(g=><button type="button" className="department-compact-item" key={g.key} onClick={()=>setSelectedDept(g)}><span>{g.label}</span><b>{g.count} <small>/ {g.target}</small></b><i><em style={{width:`${Math.min(100,g.pct)}%`}}/></i></button>)}</div>}{expanded&&<div className="department-cards">{groups.map(g=><button type="button" className="dept-card dept-card-button" key={g.key} onClick={()=>setSelectedDept(g)}><div><b>{g.label}</b><span>{g.members} employees <ChevronRight size={15}/></span></div><strong>{g.count}<small> / {g.target}</small></strong><div className="mini-progress"><i style={{width:`${Math.min(100,g.pct)}%`}}/></div><small>{g.pct}% annual target</small></button>)}</div>}</div>{selectedDept&&<DepartmentDrilldown group={groups.find(g=>g.key===selectedDept.key)||selectedDept} users={users} onOpen={onOpen} onClose={()=>setSelectedDept(null)}/>}</>}
-function PlantYearSummary({user,users,reports,tracking}:{user:User,users:User[],reports:ESOReport[],tracking:TrackingData|null}){
- const scopedUsers=user.plantId?users.filter(u=>u.plantId===user.plantId):users,scopedReports=user.plantId?reports.filter(r=>r.plantId===user.plantId):reports,activeUsers=scopedUsers.filter(u=>u.active),yearReports=scopedReports.filter(r=>inCurrentFY(r.createdAt)),target=activeUsers.reduce((sum,u)=>sum+Math.max(0,u.annualTarget||0),0),reported=yearReports.length,closed=yearReports.filter(r=>r.status==='Completed'||Boolean(r.completedAt)).length,completionRate=reported?Math.round(closed/reported*100):(tracking?.closureRates?.year.rate||0),targetPct=target?Math.min(100,Math.round(reported/target*100)):0;
- return <div className="plant-year-summary"><div className="plant-year-card plant-target-card"><div className="plant-year-card-head"><div><span>PLANT ESO / ANNUAL TARGET</span><h3>{user.plantName||'Plant'} <small>• FY {tracking?.year||fiscalYearInfo().label}</small></h3></div><Target size={20}/></div><div className="plant-year-value"><strong>{reported}</strong><span>/ {target}</span></div><div className="plant-year-progress"><i style={{width:`${targetPct}%`}}/></div><small>{targetPct}% of annual target • {Math.max(0,target-reported)} remaining</small></div><div className="plant-year-card plant-closure-card"><div className="plant-year-card-head"><div><span>PLANT CLOSURE RATE</span><h3>Fiscal year <small>• {tracking?.year||fiscalYearInfo().label}</small></h3></div><CheckCircle2 size={20}/></div><div className="plant-year-value"><strong>{completionRate}%</strong><span>{closed} closed / {reported} reported</span></div><div className="plant-year-progress"><i style={{width:`${completionRate}%`}}/></div><small>{Math.max(0,reported-closed)} open from this fiscal year's reports</small></div></div>
-}
-function DepartmentDrilldown({group,users,onOpen,onClose}:{group:any,users:User[],onOpen:(r:ESOReport)=>void,onClose:()=>void}){const[q,setQ]=useState(''),[filter,setFilter]=useState('All'),[category,setCategory]=useState('All');const list=(group.reports as ESOReport[]).filter(r=>{const u=users.find(x=>x.id===r.reporterId),hay=`${r.esoNo} ${r.location||''} ${u?.name||''}`.toLowerCase();return hay.includes(q.toLowerCase())&&(filter==='All'||r.status===filter||(filter==='Critical'&&r.urgency==='Critical')||(filter==='Overdue'&&r.overdue))&&(category==='All'||r.category===category)});const open=group.reports.filter((r:ESOReport)=>r.status==='Open').length,progress=group.reports.filter((r:ESOReport)=>r.status==='In Progress').length,completed=group.reports.filter((r:ESOReport)=>r.status==='Completed').length;return <div className="modal-backdrop department-modal-backdrop"><div className="modal department-drilldown"><div className="modal-head"><div><h2>{group.label}</h2><span>{group.members} employees • {group.count} ESO YTD</span></div><button onClick={onClose}><X/></button></div><div className="modal-body"><div className="dept-summary"><div><span>Total</span><strong>{group.count}</strong></div><div><span>Open</span><strong>{open}</strong></div><div><span>In Progress</span><strong>{progress}</strong></div><div><span>Completed</span><strong>{completed}</strong></div></div><div className="dept-drill-filters"><div className="search"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search ESO…"/></div><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="All">All statuses</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Completed">Completed</option><option value="Overdue">Overdue</option><option value="Critical">Critical</option></select><select value={category} onChange={e=>setCategory(e.target.value)}><option value="All">All categories</option><option value="Safety">Safety</option><option value="Environmental">Environmental</option></select></div><ReportsTable title={`ESO — ${group.label}`} reports={list} users={users} onOpen={onOpen}/></div></div></div>}
-function Departments({currentUser,departments,users,reports,plants,reload,onOpen}:{currentUser:User,departments:Department[],users:User[],reports:ESOReport[],plants:Plant[],reload:()=>Promise<void>,onOpen:(r:ESOReport)=>void}){
- const[show,setShow]=useState(false),[edit,setEdit]=useState<Department|null>(null),[error,setError]=useState(''),[form,setForm]=useState({name:'',code:'',plantId:currentUser.plantId||plants[0]?.id||''});
- const reset=()=>{setShow(false);setEdit(null);setError('');setForm({name:'',code:'',plantId:currentUser.plantId||plants[0]?.id||''})};
- const submit=async(e:FormEvent)=>{e.preventDefault();setError('');try{await json('/api/departments',{method:edit?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(edit?{id:edit.id,...form}:form)});reset();await reload()}catch(e:any){setError(e.message)}};
- const toggle=async(d:Department)=>{setError('');try{await json('/api/departments',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:d.id,active:!d.active})});await reload()}catch(e:any){setError(e.message)}};
- return <div className="page"><div className="dashboard-heading"><Title title="Departments" subtitle="Organize ESO performance by department"/><button className="primary-btn compact" onClick={()=>{setEdit(null);setForm({name:'',code:'',plantId:currentUser.plantId||plants[0]?.id||''});setError('');setShow(true)}}><Plus size={17}/> ADD DEPARTMENT</button></div><DepartmentPerformance users={users} reports={reports} onOpen={onOpen}/><div className="panel"><div className="panel-head"><h3>Department Database</h3><span>{departments.filter(d=>d.active).length} active • {departments.length} total</span></div>{error&&<div className="form-error">{error}</div>}<div className="department-list">{departments.map(d=><div className="department-row" key={d.id}><div className="department-main"><b>{d.name}</b><small>{plants.find(p=>p.id===d.plantId)?.name||currentUser.plantName||''}{d.code?` • ${d.code}`:''}</small></div><Badge text={d.active?'Active':'Inactive'}/><div className="department-actions"><button className="outline-small" onClick={()=>{setEdit(d);setForm({name:d.name,code:d.code||'',plantId:d.plantId||currentUser.plantId||''});setError('');setShow(false)}}>EDIT</button><button className="outline-small" onClick={()=>toggle(d)}>{d.active?'DEACTIVATE':'ACTIVATE'}</button></div></div>)}</div></div>{(show||edit)&&<div className="modal-backdrop"><form className="small-modal" onSubmit={submit}><h3>{edit?'Edit Department':'Add Department'}</h3><p>Departments are scoped to a plant and used for employee grouping, location ownership and KPI reporting.</p>{currentUser.role==='Super Admin'&&!edit&&<label>Plant<select value={form.plantId} onChange={e=>setForm({...form,plantId:e.target.value})}>{plants.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<label>Department Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Production Engineering"/></label><label>Department Code <small>(optional)</small><input value={form.code} onChange={e=>setForm({...form,code:e.target.value.toUpperCase()})} placeholder="e.g. ENG" maxLength={20}/></label>{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={reset}>Cancel</button><button className="primary-btn">{edit?'Save Changes':'Add Department'}</button></div></form></div>}</div>
+export function Nav({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className={`nav-btn ${active ? "active" : ""}`} onClick={onClick}>
+      {icon}
+      <span>{label}</span>
+      <ChevronRight size={15} />
+    </button>
+  );
 }
 
-function Locations({currentUser,locations,departments,plants,reload}:{currentUser:User,locations:Location[],departments:Department[],plants:Plant[],reload:()=>Promise<void>}){
- const[show,setShow]=useState(false),[edit,setEdit]=useState<Location|null>(null),[error,setError]=useState(''),[form,setForm]=useState({name:'',departmentId:'',plantId:currentUser.plantId||plants[0]?.id||''});
- const depName=(id?:string|null)=>departments.find(d=>d.id===id)?.name||'—';
- const add=async(e:FormEvent)=>{e.preventDefault();setError('');try{await json('/api/locations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});setShow(false);setForm({name:'',departmentId:'',plantId:currentUser.plantId||plants[0]?.id||''});await reload()}catch(e:any){setError(e.message)}};
- const save=async(e:FormEvent)=>{e.preventDefault();if(!edit)return;setError('');try{await json('/api/locations',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:edit.id,name:form.name,departmentId:form.departmentId,plantId:form.plantId})});setEdit(null);await reload()}catch(e:any){setError(e.message)}};
- const toggle=async(l:Location)=>{await json('/api/locations',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:l.id,active:l.active===false})});await reload()};
- return <div className="page"><div className="dashboard-heading"><Title title="Locations" subtitle="Manage ESO reporting locations"/><button className="primary-btn compact" onClick={()=>{setForm({name:'',departmentId:'',plantId:currentUser.plantId||plants[0]?.id||''});setError('');setShow(true)}}><Plus size={17}/> ADD LOCATION</button></div><div className="panel"><div className="panel-head"><h3>Location Database</h3><span>{locations.filter(l=>l.active!==false).length} active</span></div><div className="location-list">{locations.map(l=><div className="location-row" key={l.id}><div><b>{l.name}</b><small>{l.plantName?`${l.plantName} • `:''}{l.departmentName||depName(l.departmentId)}</small></div><Badge text={l.active===false?'Inactive':'Active'}/><div><button className="outline-small" onClick={()=>{setEdit(l);setForm({name:l.name,departmentId:l.departmentId||'',plantId:l.plantId||currentUser.plantId||''});setError('')}}>EDIT</button><button className="outline-small" onClick={()=>toggle(l)}>{l.active===false?'ACTIVATE':'DEACTIVATE'}</button></div></div>)}</div></div>{(show||edit)&&<div className="modal-backdrop"><form className="small-modal" onSubmit={edit?save:add}><h3>{edit?'Edit Location':'Add Location'}</h3>{currentUser.role==='Super Admin'&&!edit&&<label>Plant<select value={form.plantId} onChange={e=>setForm({...form,plantId:e.target.value,departmentId:''})}>{plants.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<label>Location Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Assembly Line 4"/></label><label>Department <small>(optional)</small><select value={form.departmentId} onChange={e=>setForm({...form,departmentId:e.target.value})}><option value="">No department</option>{departments.filter(d=>d.active&&(!form.plantId||d.plantId===form.plantId)).map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label>{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button><button className="primary-btn">{edit?'Save Changes':'Add Location'}</button></div></form></div>}</div>
+export function ThemeControl({
+  theme,
+  onToggle,
+}: {
+  theme: "light" | "dark";
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className="theme-control"
+      onClick={onToggle}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+    >
+      <span>{theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}</span>
+      <span>{theme === "dark" ? "Dark mode" : "Light mode"}</span>
+      <i className={`theme-switch ${theme}`}>
+        <b />
+      </i>
+    </button>
+  );
 }
 
-function Plants({currentUser,plants,corporatePlants,reload}:{currentUser:User,plants:Plant[],corporatePlants:any[],reload:()=>Promise<void>}){const[show,setShow]=useState(false),[edit,setEdit]=useState<Plant|null>(null),[error,setError]=useState(''),[withAdmin,setWithAdmin]=useState(true),[form,setForm]=useState({name:'',code:'',adminName:'',adminEmployeeId:'',adminPassword:''});const reset=()=>{setShow(false);setEdit(null);setError('');setWithAdmin(true);setForm({name:'',code:'',adminName:'',adminEmployeeId:'',adminPassword:''})};const submit=async(e:FormEvent)=>{e.preventDefault();setError('');try{const body=edit?{id:edit.id,name:form.name,code:form.code}:{name:form.name,code:form.code,...(withAdmin?{adminName:form.adminName,adminEmployeeId:form.adminEmployeeId,adminPassword:form.adminPassword}:{})};await json('/api/plants',{method:edit?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});reset();await reload()}catch(e:any){setError(e.message)}};const toggle=async(p:Plant)=>{try{await json('/api/plants',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:p.id,active:!p.active})});await reload()}catch(e:any){setError(e.message)}};if(currentUser.role!=='Super Admin')return <div className="page"><Title title="Plants" subtitle="Corporate plant management"/><div className="empty">Only Super Admin can manage plants.</div></div>;return <div className="page"><div className="dashboard-heading"><Title title="Plants" subtitle="Create a plant and its first Plant Admin in one onboarding step"/><button className="primary-btn compact" onClick={()=>{setEdit(null);setWithAdmin(true);setForm({name:'',code:'',adminName:'',adminEmployeeId:'',adminPassword:''});setShow(true)}}><Plus size={17}/> ADD PLANT</button></div><div className="panel"><div className="panel-head"><h3>Plant Database</h3><span>{plants.filter(p=>p.active).length} active • {plants.length} total</span></div>{error&&<div className="form-error">{error}</div>}<div className="department-list">{plants.map(p=>{const m=corporatePlants.find((x:any)=>x.id===p.id);return <div className="department-row" key={p.id}><div className="department-main"><b>{p.name}</b><small>{p.code}{m?` • ${m.employees} employees • ${m.reportedYtd} ESO YTD`:''}</small></div><Badge text={p.active?'Active':'Inactive'}/><div className="department-actions"><button className="outline-small" onClick={()=>{setEdit(p);setForm({name:p.name,code:p.code,adminName:'',adminEmployeeId:'',adminPassword:''});setShow(false)}}>EDIT</button><button className="outline-small" onClick={()=>toggle(p)}>{p.active?'DEACTIVATE':'ACTIVATE'}</button></div></div>})}</div></div>{(show||edit)&&<div className="modal-backdrop"><form className="small-modal" onSubmit={submit}><h3>{edit?'Edit Plant':'Add Plant'}</h3><p>{edit?'Update the plant identity.':'The new plant is isolated from other plants. You can also create its first Plant Admin now.'}</p><label>Plant Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Madrid"/></label><label>Plant Code<input required value={form.code} onChange={e=>setForm({...form,code:e.target.value.toUpperCase()})} placeholder="e.g. MADRID"/></label>{!edit&&<><label className="check-row"><input type="checkbox" checked={withAdmin} onChange={e=>setWithAdmin(e.target.checked)}/><span>Create first Plant Admin now</span></label>{withAdmin&&<><div className="owner-section-title">First Plant Admin</div><label>Full Name<input required value={form.adminName} onChange={e=>setForm({...form,adminName:e.target.value})} placeholder="e.g. Carlos Ruiz"/></label><div className="form-grid"><label>Employee ID<input required value={form.adminEmployeeId} onChange={e=>setForm({...form,adminEmployeeId:e.target.value})}/></label><label>Temporary Password<input required minLength={8} type="password" value={form.adminPassword} onChange={e=>setForm({...form,adminPassword:e.target.value})}/></label></div><p className="modal-note">This Admin is automatically locked to {form.name||'the new plant'}. Employees, departments and locations created by this Admin will inherit the same plant.</p></>}</>}{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button type="button" className="outline-btn" onClick={reset}>Cancel</button><button className="primary-btn">{edit?'Save Changes':'Create Plant'}</button></div></form></div>}</div>}
-function Exports({departments,closureRates}:{departments:Department[],closureRates?:ClosureRates}){
- const[status,setStatus]=useState('All'),[urgency,setUrgency]=useState('All'),[department,setDepartment]=useState('All'),[from,setFrom]=useState(''),[to,setTo]=useState('');
- const href=(format:string)=>{const q=new URLSearchParams({format,status,urgency,department});if(from)q.set('from',from);if(to)q.set('to',to);return `/api/export?${q.toString()}`};
- return <div className="page"><Title title="Data & Reports" subtitle="Export ESO data for management reports, Excel analysis, Power BI and other systems"/>{closureRates&&<ClosureRateMini rates={closureRates}/>}<div className="panel export-panel"><div className="panel-head"><h3>Filter Export Data</h3><span>Filters apply to all formats</span></div><div className="export-filters"><label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Open</option><option>In Progress</option><option>Completed</option></select></label><label>Urgency<select value={urgency} onChange={e=>setUrgency(e.target.value)}><option>All</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label><label>Department<select value={department} onChange={e=>setDepartment(e.target.value)}><option>All</option>{departments.map(d=><option key={d.id}>{d.name}</option>)}</select></label><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>To<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></div></div><div className="export-grid"><div className="export-card"><FileSpreadsheet size={30}/><h3>Excel Management Report</h3><p>Includes ESO Data, Summary, Department Summary and Employee Performance sheets.</p><a className="primary-btn" href={href('xlsx')}><Download size={17}/> DOWNLOAD .XLSX</a></div><div className="export-card"><FileText size={30}/><h3>Raw CSV Data</h3><p>Clean flat data for Power BI, Tableau, databases and further analysis.</p><a className="outline-btn" href={href('csv')}><Download size={17}/> DOWNLOAD .CSV</a></div><div className="export-card"><Database size={30}/><h3>Raw JSON Data</h3><p>Structured export for integrations, scripts, APIs and technical processing.</p><a className="outline-btn" href={href('json')}><Download size={17}/> DOWNLOAD .JSON</a></div></div></div>
+export function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4),
+    base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/"),
+    raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-function NotificationsPanel({notifications,reports,onClose,onOpenReport,reload}:{notifications:AppNotification[],reports:ESOReport[],onClose:()=>void,onOpenReport:(id:string)=>void,reload:()=>Promise<void>}){
- const mark=async(id?:string)=>{await json('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(id?{id}:{})});await reload()};
- return <div className="modal-backdrop"><div className="notifications-modal"><div className="notifications-head"><div><h3>Notifications</h3><span>{notifications.filter(n=>!n.isRead).length} unread</span></div><button className="outline-small" onClick={()=>mark()}>MARK ALL READ</button><button className="icon-btn" onClick={onClose}><X size={20}/></button></div><div className="notification-list">{notifications.length===0?<div className="empty">No notifications yet.</div>:notifications.map(n=><button key={n.id} className={`notification-item ${n.isRead?'read':'unread'}`} onClick={async()=>{if(!n.isRead)await mark(n.id);if(n.esoReportId&&reports.some(r=>r.id===n.esoReportId))onOpenReport(n.esoReportId)}}><Bell size={17}/><div><b>{n.title}</b>{n.message&&<p>{n.message}</p>}<small>{new Date(n.createdAt).toLocaleString()}</small></div>{!n.isRead&&<i/>}</button>)}</div><div className="notification-help"><b>How notifications work</b><p>New ESO reports notify Management/Admin roles. Assigned tasks notify the selected Maintenance/Supervisor. Task progress and completion notify the responsible oversight roles. Opening a notification marks it as read.</p></div></div></div>
+export function PushControl() {
+  const [supported, setSupported] = useState(false),
+    [enabled, setEnabled] = useState(false),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setSupported(
+      "serviceWorker" in navigator &&
+        "PushManager" in window &&
+        "Notification" in window,
+    );
+    navigator.serviceWorker?.ready
+      .then(async (r) => setEnabled(!!(await r.pushManager.getSubscription())))
+      .catch(() => {});
+  }, []);
+  const toggle = async () => {
+    if (!supported || busy) return;
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.ready,
+        current = await reg.pushManager.getSubscription();
+      if (current) {
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: current.endpoint }),
+        });
+        await current.unsubscribe();
+        setEnabled(false);
+      } else {
+        const k = await json("/api/push/public-key");
+        if (!k.publicKey)
+          throw new Error("Push is not configured on the server.");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted")
+          throw new Error("Notifications were not allowed on this device.");
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(k.publicKey),
+        });
+        await json("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+        setEnabled(true);
+      }
+    } catch (e: any) {
+      alert(e.message || "Could not enable push notifications.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!supported) return null;
+  return (
+    <button onClick={toggle} disabled={busy}>
+      <Bell size={17} />
+      {busy
+        ? "Please wait…"
+        : enabled
+          ? "Push notifications ON"
+          : "Enable push notifications"}
+    </button>
+  );
 }
-const VOE_CATEGORIES:any={workplace_conditions:'Workplace & Working Conditions',compensation_benefits:'Compensation & Benefits',process_improvement:'Process Improvement',equipment_tools:'Equipment & Tools',work_organization:'Work Organization',management_communication:'Management & Communication',employee_wellbeing:'Employee Wellbeing',other:'Other'};
-function VoESubmit({onDone}:{onDone:()=>void}){const[category,setCategory]=useState('workplace_conditions'),[description,setDescription]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await json('/api/voe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category,description})});onDone()}catch(e:any){setError(e.message)}finally{setBusy(false)}};return <div className="page"><Title title="Voice of Employee" subtitle="Share an idea, concern or workplace feedback"/><div className="panel voe-form"><form onSubmit={submit}><label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{Object.entries(VOE_CATEGORIES).map(([k,v])=><option key={k} value={k}>{String(v)}</option>)}</select></label><label>Description<textarea rows={7} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe your feedback, concern or improvement idea…" required/></label>{error&&<div className="form-error">{error}</div>}<button className="primary-btn" disabled={busy}><MessageSquare size={17}/>{busy?'SUBMITTING…':'SUBMIT VOICE'}</button></form></div></div>}
-function VoEList({title,reports,canManage,reload}:{title:string,reports:VoEReport[],canManage:boolean,reload:()=>void}){const[q,setQ]=useState(''),[status,setStatus]=useState('All');const rows=reports.filter(r=>(status==='All'||r.status===status)&&`${r.reporterName} ${r.employeeId} ${r.description} ${VOE_CATEGORIES[r.category]}`.toLowerCase().includes(q.toLowerCase()));const update=async(r:VoEReport,v:string)=>{await json('/api/voe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:r.id,status:v,adminNote:r.adminNote||''})});await reload()};return <div className="page"><Title title={title} subtitle={`${reports.length} Voice of Employee submissions`}/><div className="panel"><div className="table-toolbar"><div className="search"><Search size={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search Voice of Employee…"/></div><select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>New</option><option>Under Review</option><option>Actioned</option><option>Closed</option></select></div><div className="voe-list">{rows.map(r=><div className="voe-card" key={r.id}><div className="voe-card-head"><div><b>{VOE_CATEGORIES[r.category]||r.category}</b><span>{new Date(r.createdAt).toLocaleString()} {r.reporterName?`• ${r.reporterName}`:''}</span></div><Badge text={r.status}/></div><p>{r.description}</p>{r.adminNote&&<small className="voe-note">{r.adminNote}</small>}{canManage&&<select value={r.status} onChange={e=>update(r,e.target.value)}><option>New</option><option>Under Review</option><option>Actioned</option><option>Closed</option></select>}</div>)}{!rows.length&&<div className="empty-state">No Voice of Employee submissions in this view.</div>}</div></div></div>}
+
+export function PasswordModal({ onClose }: { onClose: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState(""),
+    [newPassword, setNewPassword] = useState(""),
+    [confirmPassword, setConfirmPassword] = useState(""),
+    [error, setError] = useState(""),
+    [done, setDone] = useState(false),
+    [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await json("/api/profile/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      setDone(true);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop">
+      <form className="small-modal" onSubmit={submit}>
+        <h3>Change Password</h3>
+        {done ? (
+          <>
+            <div className="success-box">Password changed successfully.</div>
+            <button type="button" className="primary-btn" onClick={onClose}>
+              <ActionCheckCheck
+                size={16}
+                aria-hidden="true"
+                className="action-icon"
+              />
+              Done
+            </button>
+          </>
+        ) : (
+          <>
+            <PasswordInput
+              label="Current Password"
+              required
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+            <PasswordInput
+              label="New Password"
+              required
+              autoComplete="new-password"
+              minLength={12}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <PasswordInput
+              label="Confirm New Password"
+              required
+              autoComplete="new-password"
+              minLength={12}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+            {error && <div className="form-error">{error}</div>}
+            <div className="form-actions">
+              <button type="button" className="outline-btn" onClick={onClose}>
+                <ActionX size={16} aria-hidden="true" className="action-icon" />
+                Cancel
+              </button>
+              <button className="primary-btn" disabled={busy}>
+                <ActionKeyRound
+                  size={16}
+                  aria-hidden="true"
+                  className="action-icon"
+                />
+                {busy ? "SAVING…" : "CHANGE PASSWORD"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
+export function NotificationsPanel({
+  notifications,
+  reports,
+  onClose,
+  onOpenReport,
+  reload,
+}: {
+  notifications: AppNotification[];
+  reports: ESOReport[];
+  onClose: () => void;
+  onOpenReport: (id: string) => void;
+  reload: () => Promise<void>;
+}) {
+  const mark = async (id?: string) => {
+    await json("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(id ? { id } : {}),
+    });
+    await reload();
+  };
+  return (
+    <div className="modal-backdrop">
+      <div className="notifications-modal">
+        <div className="notifications-head">
+          <div>
+            <h3>Notifications</h3>
+            <span>{notifications.filter((n) => !n.isRead).length} unread</span>
+          </div>
+          <button className="outline-small" onClick={() => mark()}>
+            <ActionCheckCheck
+              size={16}
+              aria-hidden="true"
+              className="action-icon"
+            />
+            MARK ALL READ
+          </button>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="notification-list">
+          {notifications.length === 0 ? (
+            <div className="empty">No notifications yet.</div>
+          ) : (
+            notifications.map((n) => (
+              <button
+                key={n.id}
+                className={`notification-item ${n.isRead ? "read" : "unread"}`}
+                onClick={async () => {
+                  if (!n.isRead) await mark(n.id);
+                  if (n.esoReportId) onOpenReport(n.esoReportId);
+                }}
+              >
+                <Bell size={17} />
+                <div>
+                  <b>{n.title}</b>
+                  {n.message && <p>{n.message}</p>}
+                  <small>{<LocalizedDate value={n.createdAt} format="dateTime"/>}</small>
+                </div>
+                {!n.isRead && <i />}
+              </button>
+            ))
+          )}
+        </div>
+        <div className="notification-help">
+          <b>How notifications work</b>
+          <p>
+            New ESO reports notify Management/Admin roles. Assigned tasks notify
+            the selected Maintenance/Supervisor. Task progress and completion
+            notify the responsible oversight roles. Opening a notification marks
+            it as read.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export type View =
+  | "dashboard"
+  | "report"
+  | "my-history"
+  | "all-reports"
+  | "maintenance"
+  | "employees"
+  | "departments"
+  | "locations"
+  | "plants"
+  | "exports"
+  | "voe-submit"
+  | "voe-history"
+  | "voe-all"
+  | "hunt";
+
+
+
+

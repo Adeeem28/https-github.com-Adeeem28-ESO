@@ -1,6 +1,10 @@
 "use client";
+import {Coins as ActionCoins} from 'lucide-react';
 
+import {CopyrightText} from '@/components/site-footer';
+import {LogIn as ActionLogIn} from 'lucide-react';
 import Link from "next/link";
+import {LanguageControl} from "@/components/i18n";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -64,6 +68,7 @@ export default function RegisterPage() {
             <span className="public-brand-mark"><img src="/eso-shield.png" alt="" /></span>
             <span><b>ESO</b><small>Environment &amp; Safety Opportunity</small></span>
           </Link>
+          <LanguageControl/>
           <nav className="public-nav-links" aria-label="Public navigation">
             <a href="#free">Free account</a>
             <a href="#plans">ESO plans</a>
@@ -82,7 +87,7 @@ export default function RegisterPage() {
               <p>Choose the ESO setup that fits your operation. Start with a practical safety workspace, then add the visibility and governance your plants need.</p>
               <div className="public-hero-actions">
                 <a href="#plans" className="public-primary-btn">Explore ESO plans <ArrowRight size={17} /></a>
-                <Link href="/" className="public-secondary-btn">Already have an account?</Link>
+                <Link href="/" className="public-secondary-btn"><ActionLogIn size={17} aria-hidden="true"/>Already have an account?</Link>
               </div>
               <div className="public-trust-row">
                 <span><LockKeyhole size={14} /> Private by default</span>
@@ -108,7 +113,7 @@ export default function RegisterPage() {
         <section id="free" className="public-section public-container">
           <div className="public-section-heading">
             <div><span className="public-eyebrow">START SIMPLE</span><h2>Free ESO account</h2><p>Begin with the essentials. No payment details are needed for the first setup.</p></div>
-            <div className="public-currency"><span>Display currency</span><div role="group" aria-label="Display currency">{currencies.map((item) => <button key={item.code} type="button" className={currency === item.code ? "selected" : ""} onClick={() => setCurrency(item.code)} aria-pressed={currency === item.code}><b>{item.label}</b> {item.code}</button>)}</div></div>
+            <div className="public-currency"><span>Display currency</span><div role="group" aria-label="Display currency">{currencies.map((item) => <button key={item.code} type="button" className={currency === item.code ? "selected" : ""} onClick={() => setCurrency(item.code)} aria-pressed={currency === item.code}><ActionCoins size={16} aria-hidden="true" className="action-icon"/><b>{item.label}</b> {item.code}</button>)}</div></div>
           </div>
 
           <div className="public-free-grid">
@@ -157,11 +162,11 @@ export default function RegisterPage() {
         </section>
 
         <section id="contact" className="public-contact-section">
-          <div className="public-container public-contact-card"><div><span className="public-eyebrow">READY WHEN YOU ARE</span><h2>Let’s shape the right ESO package.</h2><p>For now, subscription activation is handled through the ESO onboarding process. We can connect this section to your final registration and payment flow once the plans, prices and billing method are approved.</p></div><div className="public-contact-actions"><Link href="/owner" className="public-primary-btn">Open Platform Owner <ArrowRight size={16} /></Link><Link href="/" className="public-secondary-btn">Go to ESO login</Link></div></div>
+          <div className="public-container public-contact-card"><div><span className="public-eyebrow">READY WHEN YOU ARE</span><h2>Let’s shape the right ESO package.</h2><p>For now, subscription activation is handled through the ESO onboarding process. We can connect this section to your final registration and payment flow once the plans, prices and billing method are approved.</p></div><div className="public-contact-actions"><Link href="/owner" className="public-primary-btn">Open Platform Owner <ArrowRight size={16} /></Link><Link href="/" className="public-secondary-btn"><ActionLogIn size={17} aria-hidden="true"/>Go to ESO login</Link></div></div>
         </section>
       </main>
 
-      <footer className="public-footer"><div className="public-container"><span>© {new Date().getFullYear()} ESO Management System</span><span>Environment &amp; Safety Opportunity</span><Link href="/">Sign in</Link></div></footer>
+      <footer className="public-footer"><div className="public-container"><CopyrightText/><Link href="/">Sign in</Link></div></footer>
     </div>
   );
 }

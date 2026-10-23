@@ -13,8 +13,15 @@ if(Buffer.byteLength(session)<32||placeholder(session))invalid.push('APP_SESSION
 const ownerId=process.env.PLATFORM_OWNER_ID||'',ownerPass=process.env.PLATFORM_OWNER_PASSWORD||'';
 if(ownerId||ownerPass){if(!ownerId||ownerPass.length<12||placeholder(ownerId)||placeholder(ownerPass))invalid.push('Owner: ID and a unique password of at least 12 characters required');}
 const cron=process.env.CRON_SECRET||'';
+const productionCheck=process.argv.includes('--production');
+if(productionCheck&&!cron)invalid.push('CRON_SECRET: required in production so scheduled reminders can run');
+if(productionCheck&&!url.startsWith('https://'))invalid.push('NEXT_PUBLIC_SUPABASE_URL: production requires HTTPS');
 if(cron&&(cron.length<16||placeholder(cron)))invalid.push('CRON_SECRET: random secret with at least 16 characters required');
 const publicPush=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,privatePush=process.env.VAPID_PRIVATE_KEY;
 if(Boolean(publicPush)!==Boolean(privatePush))invalid.push('Push: public and private VAPID keys must both be configured');
 if(invalid.length){console.error('Configuration errors:\n'+invalid.map(x=>' - '+x).join('\n'));process.exitCode=1;}
 else console.log('Server configuration valid. Credentials are not displayed.');
+if(productionCheck){
+ console.log('This validates configuration only, not deployment, backups, restore, monitoring or cron execution.');
+ if(!publicPush)console.log('Push notifications are not configured; verify whether they are required before release.');
+}

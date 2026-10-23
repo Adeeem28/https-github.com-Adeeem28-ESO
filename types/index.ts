@@ -17,5 +17,5 @@ export interface HuntSubmission { id:string; eventId:string; teamId:string; repo
 export interface HuntData { year:number; events:HuntEvent[]; event:(HuntEvent&{scopeType:string})|null; teams:HuntTeam[]; leaderboard:HuntTeam[]; annualLeaderboard:HuntTeam[]; submissions:HuntSubmission[]; ownTeamId:string|null; moderatorId:string|null; isModerator:boolean; }
 
 export type VoEStatus = "New" | "Under Review" | "Actioned" | "Closed";
-export interface VoEReport { id:string; reporterId:string; reporterName?:string; employeeId?:string; department?:string; plantId?:string; plantName?:string; category:string; description:string; status:VoEStatus; adminNote?:string; sourceEsoReportId?:string; createdAt:string; updatedAt:string; }
+export interface VoEReport { id:string; reporterId:string; reporterName?:string; employeeId?:string; department?:string; plantId?:string; plantName?:string; category:string; description:string; status:VoEStatus; adminNote?:string; sourceEsoReportId?:string; sourceEsoReportNumber?:string; transferReason?:string; transferredAt?:string; createdAt:string; updatedAt:string; }
 

@@ -9,15 +9,16 @@ export const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshT
 function sessionSecret(){const value=process.env.APP_SESSION_SECRET||'';if(Buffer.byteLength(value)<32||/replace|placeholder|change.?me|example/i.test(value))throw new Error('APP_SESSION_SECRET must contain at least 32 bytes.');return value;}
 function tokenHash(token:string){return digest(`session:${token}`,sessionSecret());}
 function ownerFingerprint(){const username=process.env.PLATFORM_OWNER_ID,password=process.env.PLATFORM_OWNER_PASSWORD;return username&&password?digest(`owner:${username}:${password}`,sessionSecret()):null;}
-async function createSession(name:string,identity:{employee_id?:string;owner_key?:string}){
+async function createSession(name:string,identity:{employee_id?:string;owner_key?:string;password_setup?:boolean}){
  const token=crypto.randomBytes(32).toString('hex');
- const{error}=await db.from('eso_sessions').insert({token_hash:tokenHash(token),...identity,credential_fingerprint:identity.owner_key==='env-owner'?ownerFingerprint():null,expires_at:new Date(Date.now()+SESSION_SECONDS*1000).toISOString()});
+ const seconds=identity.password_setup?900:SESSION_SECONDS;
+ const{error}=await db.from('eso_sessions').insert({token_hash:tokenHash(token),...identity,credential_fingerprint:identity.owner_key==='env-owner'?ownerFingerprint():null,expires_at:new Date(Date.now()+seconds*1000).toISOString()});
  if(error)throw new Error('Session service unavailable. Check the V6.2.2 database migration.');
- (await cookies()).set(name,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:SESSION_SECONDS});
+ (await cookies()).set(name,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:seconds});
 }
 async function getSession(name:string){
  const token=(await cookies()).get(name)?.value||'';if(!validSessionToken(token))return null;
- const{data,error}=await db.from('eso_sessions').select('id,employee_id,owner_key,credential_fingerprint,expires_at').eq('token_hash',tokenHash(token)).is('revoked_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();
+ const{data,error}=await db.from('eso_sessions').select('id,employee_id,owner_key,credential_fingerprint,expires_at,password_setup').eq('token_hash',tokenHash(token)).is('revoked_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();
  if(error)throw new Error('Session service unavailable.');return data;
 }
 async function revokeSession(name:string){
@@ -25,15 +26,21 @@ async function revokeSession(name:string){
  if(validSessionToken(token)){const{error}=await db.from('eso_sessions').update({revoked_at:new Date().toISOString()}).eq('token_hash',tokenHash(token)).is('revoked_at',null);if(error)throw new Error('Could not revoke session. Please try logging out again.');}
  c.delete(name);
 }
-export async function setSession(userId:string){await revokeSession('eso_session');await createSession('eso_session',{employee_id:userId});}
+export async function setSession(userId:string,passwordSetup=false){await revokeSession('eso_session');await createSession('eso_session',{employee_id:userId,password_setup:passwordSetup});}
 export async function clearSession(){await revokeSession('eso_session');}
 export async function sessionUser(){
- const s=await getSession('eso_session');if(!s?.employee_id||s.owner_key)return null;
+ const s=await getSession('eso_session');if(!s?.employee_id||s.owner_key||s.password_setup)return null;
  const{data,error}=await db.from('employees').select('id,employee_no,first_name,last_name,role,annual_eso_target,active,company_id,plant_id,departments(name),companies(name,code,active),plants(name,code,active,company_id)').eq('id',s.employee_id).maybeSingle();
  if(error)throw new Error('Could not verify session.');const u:any=data;
  return u?.active&&u.companies?.active&&u.plants?.active&&u.plants.company_id===u.company_id?u:null;
 }
 export async function setPlatformSession(ownerId:string){await revokeSession('eso_platform_session');await createSession('eso_platform_session',{owner_key:ownerId});}
+export async function passwordSetupRequired(){const s=await getSession('eso_session');return Boolean(s?.employee_id&&s.password_setup&&!s.owner_key);}
+export async function finishPasswordSetup(password:string){
+ const token=(await cookies()).get('eso_session')?.value||'';
+ if(!validSessionToken(token))return {data:null,error:{message:'Setup session expired. Please sign in again.'}};
+ return db.rpc('eso_finish_password_setup_v626',{p_token_hash:tokenHash(token),p_password:password});
+}
 export async function clearPlatformSession(){await revokeSession('eso_platform_session');}
 export async function platformOwnerSession(){
  const s=await getSession('eso_platform_session');if(!s?.owner_key||s.employee_id)return null;

@@ -36,8 +36,8 @@ async function main(){
    for(const role of ['anon','authenticated']){for(const f of functions)assert.equal((await db.query('select has_function_privilege($1,$2,\'execute\') allowed',[role,f.sig])).rows[0].allowed,false,f.sig);await db.exec('set role '+role);await assert.rejects(db.exec('select * from eso_tenant_integrity'),/permission denied/);await db.exec('reset role');}
   });
   await db.exec('set role service_role');
-  await check('employee and privileged logins still work; wrong password rejected',async()=>{assert.equal((await db.query("select * from verify_eso_login_tenant('EMP',null,'TEST-A',null)")).rows[0].id,id(1));assert.equal((await db.query("select * from verify_eso_login_tenant('MAINT','SyntheticPassword123',null,null)")).rows[0].id,id(2));assert.equal((await db.query("select * from verify_eso_login_tenant('MAINT','bad',null,null)")).rows.length,0);});
-  await check('ambiguous Employee ID does not select an arbitrary company',async()=>{await db.query('insert into employees(company_id,plant_id,employee_no,first_name,last_name)values($1,$2,$3,$4,$5)',[id(21),id(31),'EMP','Test','Duplicate']);assert.equal((await db.query("select * from verify_eso_login_tenant('EMP',null,null,null)")).rows.length,0);assert.equal((await db.query("select * from verify_eso_login_tenant('EMP',null,'TEST-A',null)")).rows.length,1);});
+  await check('employee and privileged logins still work; wrong password rejected',async()=>{assert.equal((await db.query("select * from verify_eso_login_tenant('EMP',null,'TEST-A',null)")).rows.length,0);assert.equal((await db.query("select * from verify_eso_login_tenant('MAINT','SyntheticPassword123',null,null)")).rows[0].id,id(2));assert.equal((await db.query("select * from verify_eso_login_tenant('MAINT','bad',null,null)")).rows.length,0);});
+  await check('ambiguous Employee ID does not select an arbitrary company',async()=>{await db.query('insert into employees(company_id,plant_id,employee_no,first_name,last_name)values($1,$2,$3,$4,$5)',[id(21),id(31),'EMP','Test','Duplicate']);assert.equal((await db.query("select * from verify_eso_login_tenant('EMP',null,null,null)")).rows.length,0);assert.equal((await db.query("select eso_login_v626('EMP','EMP','TEST-A',null) r")).rows[0].r.password_setup,true);});
   await check('DB rejects foreign-company plant and department even with service role',async()=>{await assert.rejects(db.query('insert into employees(company_id,plant_id,employee_no,first_name,last_name)values($1,$2,$3,$4,$5)',[id(20),id(31),'BAD','Test','Bad']),/foreign key/);await assert.rejects(db.query('insert into locations(company_id,plant_id,name,department_id)values($1,$2,$3,$4)',[id(20),id(30),'Bad department',id(61)]),/foreign key/);});
   await check('location names and department codes work independently per tenant',async()=>{await db.query('insert into locations(company_id,plant_id,name)values($1,$2,$3)',[id(21),id(31),'Warehouse']);await db.query('insert into departments(company_id,plant_id,name,code)values($1,$2,$3,$4)',[id(21),id(31),'Other department','AS']);});
   const payload={plant_id:id(30),location_id:id(40),additional_locations:[id(41)],description:'Changed synthetic report',category:'environmental',urgency:'high'};
@@ -67,9 +67,128 @@ async function main(){
   await check('durable login limiter enforces threshold and resets expired window',async()=>{for(let n=1;n<=3;n++)assert.equal((await db.query('select eso_consume_login_limit_v622($1,2,900) allowed',['d'.repeat(64)])).rows[0].allowed,n<=2);await db.query('update eso_login_limits set window_start=now()-interval \'16 minutes\'');assert.equal((await db.query('select eso_consume_login_limit_v622($1,2,900) allowed',['d'.repeat(64)])).rows[0].allowed,true);});
   await check('cron reminders deduplicate notifications in the same transaction',async()=>{await call(1,300,'create',null,payload);await call(3,300,'assign',1,{assignedTo:id(2),dueAt:'2099-01-01'});const task=(await db.query('select id from maintenance_tasks where eso_report_id=$1',[id(300)])).rows[0].id;const notify=()=>db.query('select eso_queue_task_reminder_v622($1,$2,$3,$4,$5) queued',[task,'synthetic',[id(2)],'Test','Test']);assert.equal((await notify()).rows[0].queued,true);assert.equal((await notify()).rows[0].queued,false);});
   await check('service can still onboard a company and its Super Admin',async()=>{assert.equal((await db.query("select * from platform_create_company('Test C','TEST-C','Trial','trial','C Plant','C','C-SA','New','Admin','SyntheticPassword123')")).rows.length,1);});
+  const createPlant=(actor,payload)=>db.query('select eso_create_plant_v626($1,$2::jsonb) r',[id(actor),JSON.stringify(payload)]);
+  await check('plant and administrator commit together and reject unprivileged actors',async()=>{
+   await assert.rejects(createPlant(1,{name:'Denied',code:'DENIED'}),/Super Admin/);
+   const result=(await createPlant(4,{name:'Atomic plant',code:'ATOMIC',adminEmployeeId:'ATOMIC-ADMIN',adminName:'Atomic Admin',adminPassword:'SyntheticPassword123'})).rows[0].r;
+   const login=(await db.query("select * from verify_eso_login_tenant('ATOMIC-ADMIN','SyntheticPassword123','TEST-A','ATOMIC')")).rows;
+   assert.equal(login.length,1);assert.equal(login[0].plant_id,result.id);
+  });
+  await check('invalid administrator leaves no orphan plant',async()=>{
+   const n=await count('plants');await assert.rejects(createPlant(4,{name:'No orphan',code:'ORPHAN',adminEmployeeId:'X',adminName:'X',adminPassword:'short'}),/Invalid/);assert.equal(await count('plants'),n);
+  });
+  const year=Number((await db.query("select extract(year from now() at time zone 'Europe/Sarajevo') + case when extract(month from now() at time zone 'Europe/Sarajevo')>=10 then 1 else 0 end y")).rows[0].y);
+  const hunt=(actor,teams)=>db.query('select eso_create_hunt_v626($1,$2,$3::jsonb) r',[id(actor),year,JSON.stringify({title:'Synthetic Hunt',scopeType:'all',teams})]);
+  const teamA={name:'Test blue',colorKey:'blue',memberIds:[id(1)]},teamB={name:'Test green',colorKey:'green',memberIds:[id(3)]};
+  await check('Hunt creation validates actor and tenant, and rolls back a late failure',async()=>{
+   await assert.rejects(hunt(1,[teamA,teamB]),/Super Admin/);
+   const before=[await count('eso_hunt_events'),await count('eso_hunt_teams'),await count('eso_hunt_team_members')];
+   await assert.rejects(hunt(4,[teamA,{...teamB,memberIds:[id(6)]}]),/Invalid team member/);
+   assert.deepEqual([await count('eso_hunt_events'),await count('eso_hunt_teams'),await count('eso_hunt_team_members')],before);
+   await hunt(4,[teamA,teamB]);assert.equal(await count('eso_hunt_events'),before[0]+1);
+  });
+  await check('failed Hunt reuse rolls back new membership on an existing team',async()=>{
+   const existing=(await db.query("select id from eso_hunt_teams where name='Test blue'")).rows[0].id;
+   const n=await count('eso_hunt_team_members'),events=await count('eso_hunt_events');
+   await assert.rejects(hunt(4,[{...teamA,id:existing,memberIds:[id(1),id(5)]},{name:'Invalid',colorKey:'red',memberIds:[id(6)]}]),/Invalid team member/);
+   assert.equal(await count('eso_hunt_team_members'),n);assert.equal(await count('eso_hunt_events'),events);
+  });
+
+  const huntEvent=(await db.query("select id from eso_hunt_events where title='Synthetic Hunt'")).rows[0].id;
+  const transition=(actor,action,data={},event=huntEvent)=>db.query('select eso_transition_hunt_v627($1,$2,$3,$4::jsonb) r',[id(actor),event,action,JSON.stringify(data)]);
+  await check('Hunt transitions require an active same-company Super Admin',async()=>{
+    await assert.rejects(transition(1,'start'),/Super Admin/);
+    await db.query("update employees set role='super_admin' where id=$1",[id(6)]);
+    await assert.rejects(transition(6,'start'),/not found/);
+    assert.equal((await db.query('select status from eso_hunt_events where id=$1',[huntEvent])).rows[0].status,'draft');
+  });
+  await check('only one competing Hunt start succeeds and running Hunt cannot finalize',async()=>{
+    const attempts=await Promise.allSettled([transition(4,'start'),transition(4,'start')]);
+    assert.equal(attempts.filter(x=>x.status==='fulfilled').length,1);
+    assert.equal(attempts.filter(x=>x.status==='rejected').length,1);
+    const event=(await db.query('select * from eso_hunt_events where id=$1',[huntEvent])).rows[0];
+    assert.equal(new Date(event.ends_at)-new Date(event.starts_at),3600000);
+    await assert.rejects(transition(4,'finalize'),/finished Hunt/);
+    await assert.rejects(transition(4,'cancel'),/draft/);
+  });
+  await check('report creation captures Hunt submission before review; pending blocks finalization',async()=>{
+    for(const n of [410,411])await call(1,n,'create',null,payload);
+    assert.equal(Number((await db.query('select count(*) n from eso_hunt_submissions where event_id=$1',[huntEvent])).rows[0].n),2);
+    await db.query("update eso_hunt_events set starts_at=now()-interval '2 hours', ends_at=now()-interval '1 hour' where id=$1",[huntEvent]);
+    await assert.rejects(transition(4,'finalize'),/Review every/);
+    // The attempted live->review update rolls back with failed finalization.
+    assert.equal((await db.query('select status from eso_hunt_events where id=$1',[huntEvent])).rows[0].status,'live');
+  });
+  const huntSubs=(await db.query('select id from eso_hunt_submissions where event_id=$1 order by report_id',[huntEvent])).rows;
+  await check('duplicates require an accepted original and cannot orphan their reference',async()=>{
+    await assert.rejects(transition(4,'review',{submissionId:huntSubs[1].id,reviewStatus:'duplicate',duplicateOf:huntSubs[0].id}),/accepted original/);
+    await transition(4,'review',{submissionId:huntSubs[0].id,reviewStatus:'accepted'});
+    await transition(4,'review',{submissionId:huntSubs[1].id,reviewStatus:'duplicate',duplicateOf:huntSubs[0].id});
+    await assert.rejects(transition(4,'review',{submissionId:huntSubs[0].id,reviewStatus:'not_eso'}),/Reassign duplicate/);
+  });
+  await check('finalized Hunt results reject further reviews and repeat finalization',async()=>{
+    await transition(4,'finalize');
+    await assert.rejects(transition(4,'review',{submissionId:huntSubs[0].id,reviewStatus:'not_eso'}),/finished Hunt/);
+    await assert.rejects(transition(4,'finalize'),/finished Hunt/);
+    await call(1,412,'create',null,payload);
+    assert.equal(Number((await db.query('select count(*) n from eso_hunt_submissions where event_id=$1',[huntEvent])).rows[0].n),2);
+  });
+  await check('initial password grants setup only; wrong or empty password rejected',async()=>{
+   const login=async password=>(await db.query('select eso_login_v626($1,$2,$3,null) r',['EMP',password,'TEST-A'])).rows[0].r;
+   assert.equal(await login(''),null);assert.equal(await login('wrong'),null);
+   assert.deepEqual(await login('EMP'),{id:id(1),password_setup:true});
+  });
+  await check('mandatory setup preserves grandfathered sessions but consumes all setup tokens',async()=>{
+   await db.query("insert into eso_sessions(token_hash,employee_id,expires_at,legacy_password_grace) values($1,$2,now()+interval '1 hour',true)",['1'.repeat(64),id(1)]);
+   for(const token of ['2','3'])await db.query("insert into eso_sessions(token_hash,employee_id,expires_at,password_setup) values($1,$2,now()+interval '15 minutes',true)",[token.repeat(64),id(1)]);
+   const finish=password=>db.query('select eso_finish_password_setup_v626($1,$2)',['2'.repeat(64),password]);
+   await assert.rejects(finish('EMP'),/12 characters/);
+   await assert.rejects(db.query('select eso_finish_password_setup_v626($1,$2)',['1'.repeat(64),'SyntheticPersonalPassword']),/Setup session expired/);
+   await finish('SyntheticPersonalPassword');
+   assert.equal((await db.query("select revoked_at from eso_sessions where token_hash=$1",['1'.repeat(64)])).rows[0].revoked_at,null);
+   assert.equal((await db.query("select count(*) n from eso_sessions where employee_id=$1 and password_setup and revoked_at is null",[id(1)])).rows[0].n,0);
+   await assert.rejects(finish('AnotherPersonalPassword'),/Setup session expired/);
+   assert.equal((await db.query("select eso_login_v626('EMP','EMP','TEST-A',null) r")).rows[0].r,null);
+   assert.equal((await db.query("select eso_login_v626('EMP','SyntheticPersonalPassword','TEST-A',null) r")).rows[0].r.password_setup,false);
+  });
+  await check('admin editing an employee retains the personal password',async()=>{
+   await save(3,1,{first_name:'Updated'});
+   assert.equal((await db.query("select eso_login_v626('EMP','SyntheticPersonalPassword','TEST-A',null) r")).rows[0].r.password_setup,false);
+  });
+  await check('ordinary employees can change password and revoke older sessions',async()=>{
+   await db.query('select change_eso_password($1,$2,$3)',[id(1),'SyntheticPersonalPassword','ChangedPersonalPassword']);
+   assert.ok((await db.query('select revoked_at from eso_sessions where token_hash=$1',['1'.repeat(64)])).rows[0].revoked_at);
+  });
+
+  const pageReports=(actor,filter={},offset=0,limit=50)=>db.query('select eso_report_page_v628($1,$2::jsonb,$3,$4) r',[id(actor),JSON.stringify(filter),offset,limit]);
+  const metrics=actor=>db.query('select eso_metrics_v628($1) r',[id(actor)]);
+  await check('paging validates identity, bounds, literal search and tenant scope',async()=>{
+    await assert.rejects(pageReports(999),/Active employee/);await assert.rejects(pageReports(1,{},-1),/Invalid page/);await assert.rejects(pageReports(1,{},0,101),/Invalid page/);
+    assert.equal((await pageReports(4,{q:"' OR 1=1 --"})).rows[0].r.total,0);
+    const employee=(await pageReports(1)).rows[0].r;for(const report of employee.ids)assert.equal((await db.query('select reporter_id from eso_reports where id=$1',[report])).rows[0].reporter_id,id(1));
+    const other=(await pageReports(6)).rows[0].r;assert.equal(other.total,0);
+    await assert.rejects(metrics(999),/Active employee/);
+  });
+  await check('database metrics match the cohort and exclude transferred ESO reports',async()=>{
+    const result=(await metrics(4)).rows[0].r;
+    const expected=Number((await db.query("select count(*) n from eso_reports where company_id=$1 and not reclassified_to_voe and reported_at>=make_date($2-1,10,1)::timestamp at time zone 'Europe/Sarajevo' and reported_at<make_date($2,10,1)::timestamp at time zone 'Europe/Sarajevo'",[id(20),year])).rows[0].n);
+    assert.equal(result.monthly.length,12);assert.equal(result.monthly.reduce((n,x)=>n+x.reported,0),expected);
+    assert.equal(result.reporters.reduce((n,x)=>n+x.ytd,0),expected);
+    assert.equal(result.closureRates.year.reported,expected);
+    assert.equal((await metrics(6)).rows[0].r.reporters.length,0);
+  });
+  await check('1205 matching reports page without truncation, overlap or missing rows',async()=>{
+    const previous=(await pageReports(4)).rows[0].r.total, expectedTotal=previous+1205;
+    await db.query("insert into eso_reports(company_id,plant_id,reporter_id,location_id,description,urgency) select $1,$2,$3,$4,'Paging synthetic '||n,'medium' from generate_series(1,1205) n",[id(20),id(30),id(1),id(40)]);
+    const ids=[];for(let offset=0;offset<expectedTotal;offset+=50){const result=(await pageReports(4,{},offset)).rows[0].r;assert.equal(result.total,expectedTotal);assert.ok(result.ids.length<=50);ids.push(...result.ids)}
+    assert.equal(ids.length,expectedTotal);assert.equal(new Set(ids).size,expectedTotal);
+    assert.equal((await pageReports(4,{q:'Paging synthetic',status:'Completed'})).rows[0].r.total,0);
+  });
   console.log(`DATABASE CHECKS: ${passed} passed; synthetic records only.`);
  }finally{await db.close();}
 }
 const keepAlive=setInterval(()=>{},1000);
 const deadline=setTimeout(()=>{console.error('FAIL: database tests exceeded 60 seconds');process.exit(1);},60000);
 main().catch(e=>{console.error('FAIL:',e.message,e.code||'',e.detail||'');process.exitCode=1;}).finally(()=>{clearInterval(keepAlive);clearTimeout(deadline);});
+
+

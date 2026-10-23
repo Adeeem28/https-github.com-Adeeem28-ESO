@@ -1,0 +1,12 @@
+ESO — release source folder
+
+Ovaj folder je spreman za slanje i instalaciju zavisnosti.
+Ne sadrzi lozinke, lokalne postavke, node_modules ili build izlaz.
+
+1. Koristiti Node.js 24.x.
+2. Pokrenuti npm ci.
+3. Postaviti serverske varijable prema .env.example i README.md.
+4. Provjeriti migracije baze i otvorene stavke u PROVJERE.md.
+5. Pokrenuti npm run build pa npm start, ili deploy kroz hosting.
+
+node_modules i .next nastaju tokom instalacije/builda; ne salju se kao izvorni projekt.

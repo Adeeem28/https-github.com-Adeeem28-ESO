@@ -1,0 +1,49 @@
+name: ESO quality checks
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SECRET_KEY: ci-placeholder-not-a-real-key
+      APP_SESSION_SECRET: ci-only-placeholder-never-use-in-production
+      NEXT_TELEMETRY_DISABLED: '1'
+      TEST_URL: http://localhost:3250
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:routes
+      - run: npm run test:database
+      - run: npm audit --audit-level=high
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Mandatory password setup in the browser
+        run: |
+          npm start -- --port 3250 > /tmp/eso-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl --silent --fail http://localhost:3250 > /dev/null && break
+            sleep 1
+          done
+          node tests/ui-password-setup.cjs
+          node tests/ui-report-paging.cjs
+          node tests/ui-dashboard-loading.cjs
+          node tests/ui-smoke.cjs
+          node tests/ui-voe.cjs
+          node --import tsx tests/ui-localization.cjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure
+          path: test-results/

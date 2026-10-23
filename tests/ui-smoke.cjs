@@ -23,17 +23,27 @@ async function main(){
     detail={...detail,report:{...detail.report,revision:3,status:'completed'},task:{assigned_to:'u1',completed_by:'u1',completion_note:'Replaced and verified'},permissions:{edit:true,take:false,complete:false,editCompletion:true}};
    }data={ok:true};
   }else if(url.pathname==='/api/data')data={currentUser:user,users:[user],reports:[report],locations,departments:[],plants:[],corporatePlants:[]};
+  else if(url.pathname==='/api/reports/history')data={reports:[report]};
   else if(url.pathname==='/api/reports/detail')data=detail;
   else if(url.pathname==='/api/notifications')data={notifications:[]};
   else if(url.pathname==='/api/voe')data={reports:[]};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
  });
  await page.goto(process.env.TEST_URL||'http://localhost:3210');
+ // A long dashboard must not become the containing block for fixed dialogs.
+ await page.locator('.page').first().evaluate(e=>e.style.minHeight='4000px');
  await page.locator('.stat-card.orange').click();
+ await page.locator('.kpi-modal').waitFor();
+ await page.waitForFunction(()=>document.querySelector('.kpi-modal').getBoundingClientRect().top>=0);
+ const placement=await page.locator('.kpi-modal').evaluate(e=>{const r=e.getBoundingClientRect(),b=e.parentElement.getBoundingClientRect();return {top:r.top,bottom:r.bottom,backdropTop:b.top,backdropHeight:b.height,viewport:innerHeight}});
+ assert.equal(placement.backdropTop,0,'backdrop starts at viewport top');
+ assert.equal(placement.backdropHeight,placement.viewport,'backdrop fits viewport on a long page');
+ assert.ok(placement.top>=0&&placement.bottom<=placement.viewport,'KPI dialog stays visible');
+ await page.locator('.page').first().evaluate(e=>e.style.minHeight='');
  await page.locator('.kpi-modal').getByRole('button',{name:'OPEN',exact:true}).click();
  await page.getByRole('button',{name:'EDIT ESO',exact:true}).click();
  await page.getByLabel('Description',{exact:true}).fill('Updated warehouse extinguisher');
- await page.getByLabel('Loading bay',{exact:true}).check();
+ await page.getByLabel('Secondary location',{exact:true}).selectOption('l2');
  assert.equal(await page.getByLabel('Other plant',{exact:true}).count(),0);
  assert.equal(await page.getByLabel('Category',{exact:true}).inputValue(),'environmental');
  await page.getByRole('button',{name:'SAVE CHANGES',exact:true}).click();
@@ -54,6 +64,7 @@ async function main(){
  await page.locator('.nav-btn').filter({hasText:'Report ESO'}).click();
  await page.getByLabel('Description',{exact:true}).fill('New issue with several photos');
  await page.locator('input[type=file][multiple]').setInputFiles([{name:'before-1.png',mimeType:'image/png',buffer:pixel},{name:'before-2.png',mimeType:'image/png',buffer:pixel}]);
+ await page.locator('.eso-photo-grid img').nth(1).waitFor();
  assert.equal(await page.locator('.eso-photo-grid img').count(),2);
  fs.mkdirSync('test-results',{recursive:true});
  await page.screenshot({path:'test-results/desktop-report.png',fullPage:true});
@@ -65,6 +76,7 @@ async function main(){
  await browser.close();
 }
 main().catch(e=>{console.error(e);process.exit(1);});
+
 
 
 
