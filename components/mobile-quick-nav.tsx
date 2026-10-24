@@ -58,6 +58,8 @@ export default function MobileQuickNav({ user, view, go }: { user: User; view: V
   useEffect(() => { setOpen(null); }, [view, user.role]);
   useEffect(() => {
     if (!open) return;
+    const phoneBack = (event: Event) => { event.preventDefault(); setOpen(null); };
+    window.addEventListener("eso-phone-back", phoneBack);
     const outside = (event: PointerEvent) => { if (!nav.current?.contains(event.target as Node)) setOpen(null); };
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { setOpen(null); triggers.current[open]?.focus(); } };
     const desktop = window.matchMedia("(min-width:1301px)");
@@ -65,7 +67,7 @@ export default function MobileQuickNav({ user, view, go }: { user: User; view: V
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
     desktop.addEventListener("change", resize);
-    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); desktop.removeEventListener("change", resize); };
+    return () => { window.removeEventListener("eso-phone-back", phoneBack); document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); desktop.removeEventListener("change", resize); };
   }, [open]);
 
   const navigate = (entry: Entry) => { if (!entry.allowed) return; setOpen(null); go(entry.view); };

@@ -1,5 +1,6 @@
 "use client";
 import LocalizedDate from "./localized-date";
+import { usePhoneBack } from "./use-phone-back";
 import dynamic from "next/dynamic";
 import { RefreshCw } from "lucide-react";
 import { RequestError } from "./eso-shared";
@@ -105,6 +106,17 @@ export default function ESOApp({ companyCode }: { companyCode?: string } = {}) {
   const [voeLoading, setVoeLoading] = useState(false),
     [voeError, setVoeError] = useState("");
   const [loadError, setLoadError] = useState("");
+  usePhoneBack(view, Boolean(currentUser), (previous) => {
+    setView(previous as View);
+    requestAnimationFrame(resetPageScroll);
+    if (previous === "voe-history" || previous === "voe-all") void loadVoe();
+  }, () => {
+    if (passwordOpen) { setPasswordOpen(false); return true; }
+    if (notificationsOpen) { setNotificationsOpen(false); return true; }
+    if (selected) { setSelected(null); return true; }
+    if (mobileNav) { setMobileNav(false); return true; }
+    return false;
+  });
   const [dashboardSummary, setDashboardSummary] =
     useState<DashboardSummary | null>(null);
   const [history, setHistory] = useState<ESOReport[] | null>(null),
