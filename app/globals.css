@@ -1872,3 +1872,6 @@ body:has(.eso-loading-screen,.eso-loading-inline,.reports-loading,.login-checkin
 .voe-card-head>div:first-child>b{grid-column:1;grid-row:1;min-width:0}
 .voe-card-head>.voe-status{grid-column:2;grid-row:1}
 .voe-card-head .voe-metadata{grid-column:1/-1;grid-row:2;min-width:0;width:100%;white-space:nowrap;line-height:1.4}
+
+.eso-id-with-star{display:inline-flex;align-items:center;justify-content:center;gap:.375rem;vertical-align:middle;white-space:nowrap}
+.eso-id-with-star>.eso-star-inline{display:block;flex-shrink:0;margin:0;vertical-align:initial}

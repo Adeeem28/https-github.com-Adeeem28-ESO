@@ -438,7 +438,8 @@ export function Dashboard({
       <ReportsTable
         mobileTable
         title="Latest ESO Submissions"
-        reports={reports.slice(0, 10)}
+        newestFirst
+        reports={[...reports].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id)).slice(0, 10)}
         users={users}
         onOpen={onOpen}
       />

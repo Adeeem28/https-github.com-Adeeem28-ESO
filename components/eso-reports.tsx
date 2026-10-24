@@ -24,6 +24,7 @@ export function ReportsTable({
   serverPaging = false,
   mineOnly = false,
   locations = [],
+  newestFirst = false,
 }: {
   title: string;
   reports: ESOReport[];
@@ -34,6 +35,7 @@ export function ReportsTable({
   serverPaging?: boolean;
   mineOnly?: boolean;
   locations?: Location[];
+  newestFirst?: boolean;
 }) {
   const [q, setQ] = useState(""),
     [status, setStatus] = useState("All"),
@@ -84,7 +86,7 @@ export function ReportsTable({
         (!starsOnly || r.isStarred)
       );
     })
-    .sort(compareReportPriority);
+    .sort(newestFirst ? (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id) : compareReportPriority);
   const filterKey = JSON.stringify({
     q,
     status,
@@ -154,7 +156,7 @@ export function ReportsTable({
     <div className="panel">
       <div className="panel-head">
         <h3>{title}</h3>
-        <span>{total} records • priority first</span>
+        <span>{total} {newestFirst ? "records • newest first" : "records • priority first"}</span>
       </div>
       {adminFilters && (
         <div className="filters report-filters">
@@ -316,7 +318,7 @@ export function ReportsTable({
               return (
                 <tr key={r.id} className={r.isStarred ? "starred-row" : ""}>
                   <td data-label="ESO #">
-                    <b>
+                    <b className="eso-id-with-star">
                       {r.isStarred && (
                         <Star
                           className="eso-star-inline"
