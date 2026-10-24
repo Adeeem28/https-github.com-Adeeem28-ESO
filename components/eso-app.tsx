@@ -365,6 +365,7 @@ export default function ESOApp({ companyCode }: { companyCode?: string } = {}) {
             <Menu size={22} />
           </button>
         </header>
+        {mobileNav && <button type="button" className="sidebar-dismiss-layer" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
         <aside ref={sidebarRef} className={`sidebar ${mobileNav ? "open" : ""}`}>
           <div className="profile-card">
             <div className="avatar">
@@ -588,7 +589,7 @@ export default function ESOApp({ companyCode }: { companyCode?: string } = {}) {
                 serverPaging
                 mineOnly
                 locations={locations}
-                reports={reports.filter((r) => r.reporterId === currentUser.id)}
+                reports={reports}
                 users={users}
                 onOpen={setSelected}
               />

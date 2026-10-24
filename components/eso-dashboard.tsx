@@ -1,6 +1,6 @@
 "use client";
 import { Building2 as ActionBuilding2 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Children, cloneElement, isValidElement } from "react";
 import {
   AlertCircle,
   CalendarClock,
@@ -31,22 +31,41 @@ function MetricCarousel({children}:{children:React.ReactNode}){
     const el=track.current;if(!el)return;
     const mobile=window.matchMedia('(max-width:800px)');
     const reduced=window.matchMedia('(prefers-reduced-motion:reduce)');
-    let frame=0,last=0,position=el.scrollLeft;
+    let frame=0,last=0,position=0,cycleWidth=0;
+    const measure=()=>{
+      if(!mobile.matches){el.scrollLeft=0;cycleWidth=0;return;}
+      const first=el.querySelector<HTMLElement>('[data-cycle="0"]');
+      const middle=el.querySelector<HTMLElement>('[data-cycle="1"]');
+      if(first&&middle){cycleWidth=middle.offsetLeft-first.offsetLeft;position=cycleWidth;el.scrollLeft=position;}
+    };
+    const resize=new ResizeObserver(measure);resize.observe(el);measure();
+    const normalize=()=>{
+      if(!cycleWidth)return;
+      const current=el.scrollLeft;
+      if(current<cycleWidth*.5){el.scrollLeft=current+cycleWidth;position=el.scrollLeft;}
+      else if(current>=cycleWidth*1.5){el.scrollLeft=current-cycleWidth;position=el.scrollLeft;}
+    };
+    el.addEventListener('scroll',normalize,{passive:true});
     const animate=(time:number)=>{
       const elapsed=last?Math.min(time-last,50):0;last=time;
       if(mobile.matches&&!reduced.matches&&!document.hidden&&Date.now()>=pausedUntil.current&&!el.querySelector(":focus-visible")&&!document.querySelector('.modal-backdrop')){
         // Increasing scrollLeft moves the visible cards from right to left.
-        const max=el.scrollWidth-el.clientWidth;
         position+=elapsed*.022;
-        if(position>=max&&max>0)position=0;
+        if(cycleWidth&&position>=cycleWidth*1.5)position-=cycleWidth;
         el.scrollLeft=position;
       }else position=el.scrollLeft;
       frame=requestAnimationFrame(animate);
     };
     frame=requestAnimationFrame(animate);
-    return()=>cancelAnimationFrame(frame);
+    return()=>{cancelAnimationFrame(frame);resize.disconnect();el.removeEventListener('scroll',normalize);};
   },[]);
-  return <div ref={track} className="dashboard-metric-carousel" onPointerDown={pause} onWheel={pause} onTouchMove={pause} onKeyDown={pause}>{children}</div>;
+  return <div ref={track} className="dashboard-metric-carousel" onPointerDown={pause} onWheel={pause} onTouchMove={pause} onKeyDown={pause}>{[0,1,2].flatMap(cycle=>Children.toArray(children).map((child,index)=>isValidElement<Record<string,unknown>>(child)?cloneElement(child,{
+    key:`metric-${cycle}-${index}`,
+    'data-cycle':cycle,
+    'aria-hidden':cycle!==1?true:undefined,
+    tabIndex:cycle!==1?-1:(child.props.tabIndex??0),
+    style:{...(child.props.style as React.CSSProperties), '--metric-order':cycle*6+([0,1,3,2,4,5][index]??index)} as React.CSSProperties,
+  }):child))}</div>;
 }
 
 export function Dashboard({
@@ -518,13 +537,14 @@ export function StatCard({
   color,
   icon,
   onClick,
+  ...attributes
 }: {
   label: string;
   value: number;
   color: string;
   icon: React.ReactNode;
   onClick?: () => void;
-}) {
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={`stat-card ${color} ${onClick ? "clickable-kpi" : ""}`}
@@ -534,6 +554,7 @@ export function StatCard({
       onKeyDown={(e) => {
         if (onClick && (e.key === "Enter" || e.key === " ")) onClick();
       }}
+      {...attributes}
     >
       <div>
         <span>{label}</span>

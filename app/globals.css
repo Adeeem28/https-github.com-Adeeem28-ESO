@@ -1553,7 +1553,7 @@ body:has(.eso-loading-screen) .site-footer{display:none}
 .pwa-install-actions{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
 .pwa-install-actions button{font-size:.75rem;padding:.5rem;white-space:normal}
 @media(max-width:1300px){body:has(.mobile-quick-nav) .pwa-install-offer{bottom:calc(5.5rem + env(safe-area-inset-bottom))}}
-.pwa-install-offer.pwa-install-login{position:relative;inset:auto;margin:1rem auto;}
+.pwa-install-offer.pwa-install-login{position:fixed;top:calc(1rem + env(safe-area-inset-top,0px));left:1rem;right:auto;bottom:auto;margin:0;max-height:calc(100dvh - 2rem);overflow-y:auto}
 
 /* Shared dark surfaces and semantic states across forms, lists and dialogs. */
 html[data-theme="dark"]{color-scheme:dark;--state-neutral-bg:#26354a;--state-neutral-text:#c7d4e6;--state-green-bg:#193e32;--state-green-text:#96e6b6;--state-amber-bg:#40351c;--state-amber-text:#f5d17c;--state-orange-bg:#422e24;--state-orange-text:#ffbd89;--state-red-bg:#44262e;--state-red-text:#ffabb5;--state-purple-bg:#352b4c;--state-purple-text:#d0b7ff}
@@ -1666,3 +1666,209 @@ html[data-theme="dark"] .report-filters>.star-filter{color:var(--muted)}
  .dashboard-summary-grid>.top-employee-card:nth-child(3){grid-column:2;grid-row:2}
 }
 @media(max-width:800px){.dashboard-summary-grid>.dashboard-metric-carousel{scroll-snap-type:none;scroll-behavior:auto}}
+
+/* Solid edge-to-edge navigation, with the same palette in both themes. */
+@media(max-width:1300px){
+ html .mobile-quick-nav{--quick-bg:#071426;--quick-text:#aebed3;--quick-active-bg:#1c3455;--quick-active-text:#fff;--quick-hover:#223b5e;--quick-shadow:0 -.25rem 1rem #0003;left:0;right:0;bottom:0;width:auto;max-width:none;margin:0;border-radius:0;border-width:1px 0 0;border-color:#29415f;background:#071426;backdrop-filter:none;padding:.25rem env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+}
+
+/* Keep the login identity and welcome form together at every screen size. */
+.login-welcome-page{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1.25rem;padding:6rem 1rem 2rem}
+.login-welcome-page .login-brand{position:static;margin:0;justify-self:center;flex-shrink:0;gap:.75rem}
+.login-welcome-page .login-logo{width:3.51rem;height:3.51rem}
+.login-welcome-page .login-brand .eso-wordmark{width:9.5rem;height:4.05rem}
+.login-welcome-page .login-card{width:min(26.5rem,100%);padding:clamp(1.125rem,3.75vw,1.75rem);gap:.875rem}
+.login-welcome-page .login-icon{margin-inline:auto;width:3rem;height:3rem;border-radius:.875rem}
+.login-welcome-page .login-card h1{text-align:center;font-size:clamp(1.55rem,3.75vw,1.875rem);font-weight:700;letter-spacing:-.035em;line-height:1.2}
+.login-welcome-page .login-card>p{text-align:center;font-size:.875rem;font-weight:400;line-height:1.5;text-wrap:balance;margin:-.375rem 0 .25rem}
+.login-welcome-page .login-card label{font-size:.8125rem;font-weight:600;line-height:1.5}
+.login-welcome-page .login-card input{font-size:1rem;font-weight:400;min-width:0;min-height:2.875rem}
+.login-welcome-page .password-guidance{font-size:.8125rem;line-height:1.55;font-weight:400;color:var(--muted);text-wrap:pretty}
+.login-welcome-page .owner-back-link{font-size:.8125rem;font-weight:600}
+@media(max-width:800px){.login-welcome-page{gap:1rem;padding:5rem .875rem 1.5rem}}
+
+/* Compact the login-only language control while retaining its corner anchor. */
+.login-page .login-language{transform:scale(.8);transform-origin:top right}
+
+/* Emphasize only the ESO lettering in the login logo. */
+.login-brand .eso-wordmark text:first-child{font-size:38.52px;font-weight:750;letter-spacing:.5px}
+.login-welcome-page .login-brand{gap:.54rem}
+.login-welcome-page .login-brand .eso-wordmark{height:3.51rem;width:8.24rem}
+
+/* The bottom navigation and its menus share one opaque dark palette. */
+@media(max-width:1300px){
+ html .mobile-quick-nav{--panel:#0f1e33;--text:#e6eef9;--muted:#aebed3;--border:#29415f;--soft:#1c3455;padding-top:.25rem;padding-bottom:calc(.25rem + env(safe-area-inset-bottom,0px));align-items:center}
+ .mobile-quick-nav .quick-tabs{align-items:center}
+ .mobile-quick-nav .quick-tab{align-items:center;justify-content:center;align-content:center;text-align:center;background:#0f1e33}
+ .mobile-quick-nav .quick-tab.active,.mobile-quick-nav .quick-tab.is-open{background:#1c3455;color:#fff}
+ .mobile-quick-nav .quick-tab.quick-report{background:#2f6bff;color:#fff}
+ .mobile-quick-nav .quick-panel{background:#0f1e33;color:#e6eef9;border-color:#29415f;box-shadow:0 -.5rem 2rem #0005;color-scheme:dark}
+ .mobile-quick-nav .quick-panel-heading{border-color:#29415f}
+ .mobile-quick-nav .quick-panel-heading button{background:#1c3455;color:#aebed3}
+ .mobile-quick-nav .quick-panel-items button{background:#14263e;color:#e6eef9}
+ .mobile-quick-nav .quick-panel-items button>svg:first-child{color:#9fc1ff}
+ .mobile-quick-nav .quick-panel-items button[aria-current="page"]{background:#1c3455;color:#fff}
+ .mobile-quick-nav .quick-panel-items button:disabled{background:transparent;color:#aebed3}
+}
+
+/* Request dark system chrome independently of the application's content theme. */
+html{color-scheme:dark;background:#071426}
+body{color-scheme:light}
+html[data-theme="dark"] body{color-scheme:dark}
+
+.dashboard-metric-carousel>[data-cycle]:not([data-cycle="1"]){display:none}
+@media(max-width:800px){
+ .dashboard-summary-grid>.dashboard-metric-carousel{scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+ .dashboard-metric-carousel::-webkit-scrollbar{display:none;width:0;height:0}
+ .dashboard-metric-carousel>[data-cycle]{display:flex;order:var(--metric-order)}
+ .dashboard-metric-carousel>[data-cycle]:not([data-cycle="1"]){display:flex}
+}
+
+.sidebar-dismiss-layer{display:none}
+@media(max-width:1300px){
+ .sidebar-dismiss-layer{display:block;position:fixed;inset:0;z-index:139;width:100%;height:100dvh;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:default}
+}
+
+.due-date-summary.is-overdue{background:#fff1f2;border:1px solid #f1bdc4}
+.due-date-summary .due-date-overdue{display:block;margin-top:.5rem;font-size:.8125rem;font-weight:800;color:#b42336}
+.due-date-summary.is-overdue strong{color:#b42336}
+html[data-theme="dark"] .due-date-summary.is-overdue{background:#44262e;border-color:#82414f}
+html[data-theme="dark"] .due-date-summary.is-overdue strong,html[data-theme="dark"] .due-date-summary .due-date-overdue{color:#ffabb5}
+
+/* Center mobile field values independently of their trailing controls. */
+@media(max-width:800px){
+ select{
+  appearance:none;-webkit-appearance:none;
+  text-align:center;text-align-last:center;
+  padding-left:1.5rem!important;padding-right:1.5rem!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2365758b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;background-position:right .5rem center!important;background-size:.875rem!important;
+ }
+ html[data-theme="dark"] select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aebed3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+ }
+ input:is([type="date"],[type="datetime-local"]){position:relative;text-align:center;padding-inline:1.35rem!important}
+ input:is([type="date"],[type="datetime-local"])::-webkit-date-and-time-value{text-align:center;width:100%;margin:0}
+ input:is([type="date"],[type="datetime-local"])::-webkit-datetime-edit{display:block;text-align:center;padding:0}
+ input:is([type="date"],[type="datetime-local"])::-webkit-calendar-picker-indicator{position:absolute;right:.35rem;top:50%;transform:translateY(-50%);margin:0;padding:0;width:1rem;height:1rem}
+ .report-filters>.filter-date{text-align:center}
+}
+
+.report-filters>.filter-date>span{text-transform:uppercase;text-align:left}
+
+@media(max-width:800px){
+ .report-filters>.filter-date input{flex:0 0 1.5rem;height:1.5rem;line-height:normal}
+ .report-filters>.filter-date input::-webkit-datetime-edit{height:100%;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+ .report-filters>.filter-date input::-webkit-datetime-edit-fields-wrapper{padding:0}
+ .report-filters>.filter-date input::-webkit-date-and-time-value{min-height:1.5rem;display:flex;align-items:center;justify-content:center}
+}
+
+/* Float date labels so they do not push the value below the field center. */
+@media(max-width:800px){
+ .report-filters>.filter-date{position:relative;justify-content:center}
+ .report-filters>.filter-date>span{position:absolute;top:.25rem;left:.45rem;line-height:1;pointer-events:none}
+ .report-filters>.filter-date input{flex:none;margin:0;align-self:center}
+}
+
+.completion-summary{display:grid;justify-items:center;gap:1rem;padding:1rem .75rem}
+.completion-summary>.detail{width:100%;min-width:0}
+.completion-summary>.detail strong{overflow-wrap:anywhere}
+
+.attachment-grid{grid-template-columns:minmax(0,1fr)}
+.attachment-grid.attachment-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(.625rem,2vw,1.75rem)}
+.attachment-pair>div{min-width:0}
+.attachment-pair>div:nth-child(n+3){grid-column:1/-1}
+.attachment-pair>div:nth-child(-n+2) .eso-photo-grid{grid-template-columns:minmax(0,1fr)}
+.attachment-pair h4{overflow-wrap:anywhere}
+
+/* Equal before/after columns, independent of each photo's proportions. */
+.attachment-grid.attachment-pair{grid-template-columns:minmax(0,1fr) minmax(0,1fr);justify-items:stretch}
+.attachment-pair>div:nth-child(-n+2){width:100%;max-width:none;min-width:0}
+.attachment-pair>div:nth-child(-n+2) .eso-photo-grid,
+.attachment-pair>div:nth-child(-n+2) .eso-photo-grid a{width:100%;min-width:0;max-width:none}
+.attachment-pair>div:nth-child(-n+2) .eso-photo-grid img{display:block;width:100%;max-width:none;object-fit:contain}
+
+@media(max-width:800px){
+ .report-filters>.filter-date input::-webkit-datetime-edit{line-height:1;transform:translateY(-1px)}
+ .report-filters>.filter-date input::-webkit-date-and-time-value{line-height:1;transform:translateY(-1px)}
+}
+
+.modal-body .problem-description>span{font-size:clamp(.8125rem,1.7vw,.9375rem);font-weight:800;color:var(--text);letter-spacing:.035em}
+.modal-body .problem-description p{font-size:clamp(.9375rem,2.15vw,1.125rem);line-height:1.65;padding:.875rem 1rem;font-weight:500;background:var(--soft);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:.5rem;overflow-wrap:anywhere}
+
+.corrective-action-detail{margin-top:1.5rem;overflow-wrap:anywhere;white-space:pre-wrap}
+
+.modal-body .corrective-action-panel p{font-size:clamp(.875rem,2vw,1.0625rem);line-height:1.6;padding:.875rem 1rem;background:var(--soft);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:.5rem;overflow-wrap:anywhere}
+
+.reports-loading{width:100%;text-align:center;margin:1rem 0;color:var(--muted)}
+
+/* Shared page/section typography across dashboard, reports, exports and forms. */
+:root{--section-heading-size:1.0625rem;--page-description-size:.875rem}
+@media(max-width:800px){:root{--section-heading-size:.9375rem;--page-description-size:.8125rem}}
+.content :is(.panel-head h2,.panel-head h3,.panel>h3,.form-panel>h3,.export-card h3,.closure-rate-mini-head h3,.plant-year-card-head h3,.voe-group-heading h2,.voe-compose-heading h2){
+ font-family:inherit;font-size:var(--section-heading-size);font-weight:700;line-height:1.35;letter-spacing:-.015em;color:var(--text);
+}
+.content :is(.page-title p,.panel-head>div>h3+span,.panel-head>div>h2+span,.panel-head>div>p,.panel-head>div>small,.panel>h3+p,.form-panel>p,.export-card p,.closure-rate-mini-head>div>span,.voe-compose-heading p){
+ font-family:inherit;font-size:var(--page-description-size);font-weight:400;line-height:1.5;letter-spacing:normal;color:var(--muted);text-wrap:balance;
+}
+.content :is(.panel-head>div>h3+span,.panel-head>div>h2+span,.panel-head>div>p,.panel-head>div>small,.closure-rate-mini-head>div>span){display:block;margin-top:.25rem}
+
+@media(max-width:800px){
+ .employee-tracker-toolbar>.primary-btn{font-size:.6875rem;font-weight:850;line-height:1.15;letter-spacing:.01em}
+}
+
+/* Align notification heading and actions to the list's outer edges. */
+.notifications-modal .notifications-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:.625rem;padding:0 0 1rem;text-align:left}
+.notifications-head>div:first-child{min-width:0;justify-self:start;text-align:left}
+.notifications-head h3{margin:0;text-align:left}
+.notifications-head>div:first-child>span{display:block;margin-top:.25rem;text-align:left}
+.notifications-head>button{justify-self:end;margin:0}
+@media(max-width:800px){
+ .notifications-modal .notifications-head{gap:.375rem;padding-bottom:.75rem}
+ .notifications-head h3{font-size:1rem;overflow-wrap:anywhere}
+ .notifications-head>.outline-small{max-width:10rem;white-space:normal}
+}
+
+.notifications-modal .notifications-head{width:calc(100% + .5rem);max-width:none}
+
+@media(max-width:1300px){
+ html .mobile-quick-nav{padding-left:calc(.375rem + env(safe-area-inset-left,0px));padding-right:calc(.375rem + env(safe-area-inset-right,0px))}
+}
+
+@media(max-width:1300px){
+ html .mobile-quick-nav{--tab-spacing:.5rem;padding-left:calc(var(--tab-spacing) + env(safe-area-inset-left,0px));padding-right:calc(var(--tab-spacing) + env(safe-area-inset-right,0px))}
+ .mobile-quick-nav .quick-tabs{gap:var(--tab-spacing)}
+}
+@media(max-width:800px){html .mobile-quick-nav{--tab-spacing:.2rem}}
+
+/* Reserve only the actual navigation height below the centered footer. */
+@media(max-width:1300px){
+ .content{padding-bottom:calc(4rem + 1px + env(safe-area-inset-bottom,0px))!important}
+ .content>.site-footer{display:flex;align-items:center;justify-content:center;padding-block:.75rem}
+}
+@media(max-width:800px){
+ .content{padding-bottom:calc(56px + .5rem + 1px + env(safe-area-inset-bottom,0px))!important}
+}
+
+/* Slightly denser tables on phones without changing tablet/desktop layouts. */
+@media(max-width:800px){
+ .table-wrap th,.table-wrap td{font-size:.625rem;padding:.4375rem .3125rem;line-height:1.3}
+ .reports-table-scroll table{width:52rem;min-width:52rem}
+ .reports-table-scroll th,.reports-table.reports-table-scroll td:nth-child(n){padding:.4375rem .3125rem;font-size:.625rem;line-height:1.3}
+ .reports-table-scroll td small{font-size:.525rem;line-height:1.3;margin-top:.1rem}
+ .reports-table-scroll .badge{--pill-width:4.75rem;--pill-height:1.5rem;font-size:.525rem;padding:.175rem .25rem}
+}
+
+/* All loading messages suppress copyright until their content is ready. */
+body:has(.eso-loading-screen,.eso-loading-inline,.reports-loading,.login-checking) .site-footer,
+body:has(.eso-loading-screen,.eso-loading-inline,.reports-loading,.login-checking) .copyright-text{display:none}
+
+.voe-card>.outline-btn{display:flex;width:fit-content;max-width:100%;margin-inline:auto}
+
+.voe-editor>small{display:block;width:100%;text-align:center}
+
+.voe-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.375rem .625rem}
+.voe-card-head>div:first-child{display:contents}
+.voe-card-head>div:first-child>b{grid-column:1;grid-row:1;min-width:0}
+.voe-card-head>.voe-status{grid-column:2;grid-row:1}
+.voe-card-head .voe-metadata{grid-column:1/-1;grid-row:2;min-width:0;width:100%;white-space:nowrap;line-height:1.4}

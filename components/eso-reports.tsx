@@ -1,5 +1,6 @@
 "use client";
 import { compareReportPriority } from "@/lib/report-priority";
+import { cacheReportPage, readReportPage } from "@/lib/report-page-cache";
 
 import LocalizedDate from "./localized-date";
 import { X as ActionX } from "lucide-react";
@@ -106,16 +107,21 @@ export function ReportsTable({
     [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!serverPaging) return;
+    const params = new URLSearchParams({ ...JSON.parse(filterKey), page: String(page) });
+    const cacheKey = params.toString();
+    const cached = readReportPage(reports, cacheKey);
+    if (cached) {
+      setRemote(cached);
+      setBusy(false);
+      setError("");
+      return;
+    }
     const controller = new AbortController();
     let cancelled = false;
     setBusy(true);
     setError("");
     const timer = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({
-          ...JSON.parse(filterKey),
-          page: String(page),
-        });
         const data = await json("/api/reports/page?" + params, {
           signal: controller.signal,
         });
@@ -128,13 +134,14 @@ export function ReportsTable({
             return;
           }
           setRemote(data);
+          cacheReportPage(reports, cacheKey, data);
         }
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       } finally {
         if (!cancelled) setBusy(false);
       }
-    }, 200);
+    }, JSON.parse(filterKey).q ? 200 : 0);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -265,7 +272,7 @@ export function ReportsTable({
           </button>
         </div>
       )}
-      {serverPaging && busy && <p role="status">Loading reports…</p>}
+      {serverPaging && busy && <p className="reports-loading" role="status">Loading reports…</p>}
       <div
         className={`table-wrap reports-table${mobileTable ? " reports-table-scroll" : ""}`}
         tabIndex={mobileTable ? 0 : undefined}
@@ -615,33 +622,30 @@ export function ReportModal({
                   : "Not assigned"
               }
             />
-            {report.dueAt && (
-              <Detail
-                l="Due Date"
-                v={<><LocalizedDate value={report.dueAt}/>{report.overdue && <> • <span>{`OVERDUE ${report.overdueDays}d`}</span></>}</>}
-              />
-            )}
-            {report.status === "Completed" && (
-              <Detail
-                l="Resolved By"
-                v={
-                  resolverName
-                    ? `${resolverName}${resolverRole ? ` • ${resolverRole}` : ""}`
-                    : "Not recorded"
-                }
-              />
-            )}{" "}
           </div>
-          {report.completedAt && (
-            <div className="resolved-at-summary">
-              <Detail
-                l="Resolved At"
-                v={<LocalizedDate value={report.completedAt} format="dateTime"/>}
-              />
+          {report.dueAt && (
+            <div className={`resolved-at-summary due-date-summary${report.overdue ? " is-overdue" : ""}`}>
+              <Detail l="Due Date" v={<LocalizedDate value={report.dueAt}/>} />
+              {report.overdue && <span className="due-date-overdue">{`OVERDUE ${report.overdueDays}d`}</span>}
             </div>
           )}
-          <Block l="Problem Description" v={report.description} />
+          {(report.status === "Completed" || report.completedAt) && (
+            <div className="resolved-at-summary completion-summary">
+              <Detail
+                l="Resolved By"
+                v={resolverName
+                  ? `${resolverName}${resolverRole ? ` • ${resolverRole}` : ""}`
+                  : "Not recorded"}
+              />
+              {report.completedAt && <Detail
+                l="Resolved At"
+                v={<LocalizedDate value={report.completedAt} format="dateTime"/>}
+              />}
+            </div>
+          )}
+          <Block className="problem-description" l="Problem Description" v={report.description} />
           <Block
+            className="corrective-action-panel"
             l="Corrective Action"
             v={report.correctiveAction || "No corrective action recorded yet."}
           />

@@ -143,7 +143,7 @@ export default function Login({
   };
   return (
     <>
-      <div className="login-page">
+      <div className={`login-page${setup ? "" : " login-welcome-page"}`}>
         {!setup && (
           <div className="login-language">
             <LanguageControl />
@@ -153,7 +153,7 @@ export default function Login({
           <span className="login-logo">
             <img src="/eso-shield.png" alt="ESO safety shield" />
           </span>
-          <BrandWordmark />
+          <BrandWordmark compact />
         </div>
         {checking ? (
           <div role="status" className="login-checking">
@@ -262,8 +262,7 @@ export default function Login({
               onChange={(e) => setPassword(e.target.value)}
             />
             <small className="password-guidance">
-              First login without a personal password? Use your Employee ID as
-              the initial password.
+              Use your Employee ID as the initial password for the first log in.
             </small>
             {error && (
               <div role="alert" className="form-error">

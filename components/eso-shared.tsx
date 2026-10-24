@@ -50,9 +50,9 @@ export function Detail({ l, v }: { l: string; v: React.ReactNode }) {
   );
 }
 
-export function Block({ l, v }: { l: string; v: string }) {
+export function Block({ l, v, className = "" }: { l: string; v: string; className?: string }) {
   return (
-    <div className="detail-block">
+    <div className={`detail-block ${className}`}>
       <span>{l}</span>
       <p data-no-translate>{v}</p>
     </div>

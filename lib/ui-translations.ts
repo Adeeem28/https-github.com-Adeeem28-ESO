@@ -1152,11 +1152,16 @@ export const translations: Record<string, [string, string, string]> = {
     "Geben Sie Ihre Mitarbeiter-ID und Ihr Passwort ein.",
     "Introduce tu ID de empleado y contraseña.",
   ],
-  "First login without a personal password? Use your Employee ID as the initial password.":
+  "First login without a personal password? Use your Employee ID as the initial password.": [
+    "Prva prijava bez lične lozinke? Kao početnu lozinku koristite svoj ID zaposlenika.",
+    "Erste Anmeldung ohne persönliches Passwort? Verwenden Sie Ihre Mitarbeiter-ID als Anfangspasswort.",
+    "¿Primera entrada sin contraseña personal? Utiliza tu ID de empleado como contraseña inicial.",
+  ],
+  "Use your Employee ID as the initial password for the first log in.":
     [
-      "Prva prijava bez lične lozinke? Kao početnu lozinku koristite svoj ID zaposlenika.",
-      "Erste Anmeldung ohne persönliches Passwort? Verwenden Sie Ihre Mitarbeiter-ID als Anfangspasswort.",
-      "¿Primera entrada sin contraseña personal? Utiliza tu ID de empleado como contraseña inicial.",
+      "Pri prvoj prijavi koristite svoj ID zaposlenika kao početnu lozinku.",
+      "Verwenden Sie bei der ersten Anmeldung Ihre Mitarbeiter-ID als Anfangspasswort.",
+      "Utiliza tu ID de empleado como contraseña inicial al iniciar sesión por primera vez.",
     ],
   "CHANGE PASSWORD": [
     "PROMIJENI LOZINKU",
