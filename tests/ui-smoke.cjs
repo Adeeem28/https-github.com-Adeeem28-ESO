@@ -32,7 +32,7 @@ async function main(){
  await page.goto(process.env.TEST_URL||'http://localhost:3210');
  // A long dashboard must not become the containing block for fixed dialogs.
  await page.locator('.page').first().evaluate(e=>e.style.minHeight='4000px');
- await page.locator('.stat-card.orange').click();
+ await page.locator('.stat-card.orange[data-cycle="1"]').click();
  await page.locator('.kpi-modal').waitFor();
  await page.waitForFunction(()=>document.querySelector('.kpi-modal').getBoundingClientRect().top>=0);
  const placement=await page.locator('.kpi-modal').evaluate(e=>{const r=e.getBoundingClientRect(),b=e.parentElement.getBoundingClientRect();return {top:r.top,bottom:r.bottom,backdropTop:b.top,backdropHeight:b.height,viewport:innerHeight}});

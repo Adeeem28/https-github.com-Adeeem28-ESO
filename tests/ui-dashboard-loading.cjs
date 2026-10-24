@@ -125,17 +125,20 @@ const assert = require("node:assert/strict");
     });
     await page.goto(process.env.TEST_URL || "http://localhost:3250");
     await page.locator(".dashboard-summary-grid").waitFor();
+    // The seamless carousel renders two visual copies; assertions target its original cycle.
+    assert.equal(await page.locator('.stat-card.blue[data-cycle="1"]').count(), 1);
+    assert.equal(await page.locator('.stat-card.blue[aria-hidden="true"]').count(), 2);
     assert.equal(historyReads, 0, "no full history request during startup");
     assert.equal(
-      await page.locator(".stat-card.blue strong").innerText(),
+      await page.locator('.stat-card.blue[data-cycle="1"] strong').innerText(),
       "120",
     );
     assert.equal(
-      await page.locator(".stat-card.orange strong").innerText(),
+      await page.locator('.stat-card.orange[data-cycle="1"] strong').innerText(),
       "90",
     );
     assert.equal(
-      await page.locator(".stat-card.green strong").innerText(),
+      await page.locator('.stat-card.green[data-cycle="1"] strong').innerText(),
       "30",
     );
     assert.match(
@@ -162,7 +165,7 @@ const assert = require("node:assert/strict");
       .first()
       .click();
     fail = true;
-    await page.locator(".stat-card.orange").click();
+    await page.locator('.stat-card.orange[data-cycle="1"]').click();
     await page
       .locator(".form-error")
       .filter({ hasText: "History unavailable" })
@@ -192,7 +195,7 @@ const assert = require("node:assert/strict");
         !document.querySelector(".dashboard-heading-actions button").disabled,
     );
     assert.equal(historyReads, readCount, "refresh does not prefetch history");
-    await page.locator(".stat-card.green").click();
+    await page.locator('.stat-card.green[data-cycle="1"]').click();
     await page.locator(".kpi-modal").waitFor();
     assert.equal(await page.locator(".kpi-modal tbody tr").count(), 30);
     assert.equal(
